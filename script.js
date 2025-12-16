@@ -10,12 +10,14 @@ let editingItemId = null;
 let calendarId = null;
 let unsubscribeFirestore = null;
 let isInitialized = false;
+let calendar = null;
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
     await initializeCalendar();
     setupTabs();
     setupForm();
+    initFullCalendar();
     checkReminders();
     setupReminderCheck();
     
@@ -324,6 +326,8 @@ function saveItem() {
 
     if (!name) return;
 
+    const baseExisting = editingItemId ? items[currentTab].find(i => i.id === editingItemId) : null;
+
     const item = {
         id: editingItemId || Date.now().toString(),
         name,
@@ -331,8 +335,12 @@ function saveItem() {
         reminder,
         time,
         day,
-        completed: editingItemId ? items[currentTab].find(i => i.id === editingItemId)?.completed || false : false,
-        completedDate: editingItemId ? items[currentTab].find(i => i.id === editingItemId)?.completedDate : null
+        completed: editingItemId ? (baseExisting?.completed || false) : false,
+        completedDate: editingItemId ? baseExisting?.completedDate : null,
+        // для задач от Господина запоминаем день постановки
+        createdDate: currentTab === 'master'
+            ? (baseExisting?.createdDate || new Date().toISOString().split('T')[0])
+            : baseExisting?.createdDate
     };
 
     if (editingItemId) {
@@ -380,6 +388,98 @@ function renderAll() {
     renderList('daily');
     renderList('master');
     renderList('weekly');
+    updateCalendarEvents();
+}
+
+// Инициализация FullCalendar
+function initFullCalendar() {
+    const calendarEl = document.getElementById('fullcalendar');
+    if (!calendarEl || typeof FullCalendar === 'undefined') return;
+
+    calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ru',
+        firstDay: 1,
+        height: 'auto',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: ''
+        },
+        dayMaxEvents: 3,
+        editable: false,
+        selectable: false
+    });
+
+    calendar.render();
+    updateCalendarEvents();
+}
+
+// Обновление событий в FullCalendar
+function updateCalendarEvents() {
+    if (!calendar) return;
+
+    const events = buildCalendarEvents();
+    calendar.removeAllEvents();
+    calendar.addEventSource(events);
+}
+
+// Построение списка событий для FullCalendar
+function buildCalendarEvents() {
+    const events = [];
+
+    // Ежедневные ритуалы: повторяются каждый день
+    (items.daily || []).forEach((item) => {
+        events.push({
+            id: `daily-${item.id}`,
+            title: item.name,
+            daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+            startTime: item.time || '00:00',
+            classNames: ['fc-event-daily']
+        });
+    });
+
+    // Еженедельные ритуалы: повторяются в указанный день недели
+    const mapDayToIndex = {
+        sunday: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6
+    };
+
+    (items.weekly || []).forEach((item) => {
+        if (!item.day) return;
+        const dow = mapDayToIndex[item.day];
+        if (dow === undefined) return;
+
+        events.push({
+            id: `weekly-${item.id}`,
+            title: item.name,
+            daysOfWeek: [dow],
+            startTime: item.time || '00:00',
+            classNames: ['fc-event-weekly']
+        });
+    });
+
+    // Задачи от Господина: однократные события в день создания
+    (items.master || []).forEach((item) => {
+        if (!item.createdDate) return;
+        const timePart = item.time || '00:00';
+        const start = `${item.createdDate}T${timePart}`;
+
+        events.push({
+            id: `master-${item.id}`,
+            title: item.name,
+            start,
+            allDay: !item.time,
+            classNames: ['fc-event-master']
+        });
+    });
+
+    return events;
 }
 
 // Отрисовка списка
@@ -464,11 +564,11 @@ function checkReminders() {
         }
     });
 
-    // Проверяем задачи от хозяина
+    // Проверяем задачи от Господина
     items.master.forEach(item => {
         if (item.reminder && item.time && !item.completed) {
             if (item.time === currentTime) {
-                showNotification(`Задача от хозяина: ${item.name}`);
+                showNotification(`Задача от Господина: ${item.name}`);
             }
         }
     });
