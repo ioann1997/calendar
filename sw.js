@@ -4,7 +4,15 @@ const CACHE_NAME = 'sovinaya-napominalka-v2';
 const RUNTIME_CACHE = 'runtime-cache-v1';
 
 // Определяем базовый путь автоматически (для GitHub Pages)
-const BASE_PATH = self.location.pathname.split('/sw.js')[0] || '';
+// Если sw.js находится в /Calendar/sw.js, то BASE_PATH будет /Calendar
+const BASE_PATH = (() => {
+  let path = self.location.pathname.split('/sw.js')[0] || '';
+  // Убираем завершающий слэш, если он есть (кроме корня)
+  if (path !== '/' && path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+  return path;
+})();
 
 // Файлы для кэширования при установке
 const STATIC_CACHE_URLS = [
@@ -74,12 +82,28 @@ messaging.onBackgroundMessage((payload) => {
 
 // Установка Service Worker
 self.addEventListener('install', (event) => {
-  console.log('[SW] Установка Service Worker');
+  console.log('[SW] Установка Service Worker, BASE_PATH:', BASE_PATH);
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[SW] Кэширование статических файлов');
-        return cache.addAll(STATIC_CACHE_URLS.map(url => new Request(url, { cache: 'reload' })));
+        // Кэшируем файлы по одному, чтобы ошибка одного не блокировала остальные
+        return Promise.allSettled(
+          STATIC_CACHE_URLS.map(url => {
+            const request = new Request(url, { cache: 'reload' });
+            return fetch(request)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(request, response);
+                } else {
+                  console.warn('[SW] Не удалось загрузить:', url, response.status);
+                }
+              })
+              .catch(error => {
+                console.warn('[SW] Ошибка загрузки:', url, error);
+              });
+          })
+        );
       })
       .catch((error) => {
         console.error('[SW] Ошибка кэширования:', error);

@@ -147,11 +147,8 @@ async function initializeFirebaseMessaging() {
         // Получаем токен FCM
         const messaging = firebase.messaging();
         
-        // Устанавливаем Service Worker для FCM
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.ready;
-            messaging.useServiceWorker(registration);
-        }
+        // В Firebase 10.7.1+ Service Worker используется автоматически
+        // Не нужно вызывать messaging.useServiceWorker() - он устарел
 
         // Получаем токен
         fcmToken = await messaging.getToken({
