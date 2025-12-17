@@ -14,16 +14,41 @@ exports.checkAndSendReminders = onSchedule(
     console.log('🦉 Проверка напоминаний...');
     
     const db = admin.firestore();
+    
+    // Получаем текущее время в часовом поясе Europe/Moscow
+    // Важно: используем правильный часовой пояс для сравнения с временем напоминаний
+    const timeZone = 'Europe/Moscow'; // ⚠️ ИЗМЕНИ НА СВОЙ ЧАСОВОЙ ПОЯС
     const now = new Date();
     
-    // Получаем текущее время в формате HH:MM
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // Конвертируем UTC время в локальное время указанного часового пояса
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      weekday: 'long'
+    });
     
-    // Получаем текущий день недели
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = days[now.getDay()];
+    const parts = formatter.formatToParts(now);
+    const hour = parts.find(p => p.type === 'hour').value;
+    const minute = parts.find(p => p.type === 'minute').value;
+    const weekday = parts.find(p => p.type === 'weekday').value.toLowerCase();
     
-    console.log(`⏰ Текущее время: ${currentTime}, День: ${currentDay}`);
+    const currentTime = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+    
+    // Маппинг дней недели
+    const dayMap = {
+      'sunday': 'sunday',
+      'monday': 'monday',
+      'tuesday': 'tuesday',
+      'wednesday': 'wednesday',
+      'thursday': 'thursday',
+      'friday': 'friday',
+      'saturday': 'saturday'
+    };
+    const currentDay = dayMap[weekday] || weekday;
+    
+    console.log(`⏰ UTC время: ${now.toISOString()}, ${timeZone} время: ${currentTime}, День: ${currentDay}`);
     
     try {
       // Получаем все календари

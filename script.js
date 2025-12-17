@@ -1022,10 +1022,14 @@ function checkReminders() {
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const currentDay = getCurrentDayName();
 
+    // Отладочное логирование (можно отключить в продакшене)
+    console.log(`[Reminders] Проверка напоминаний: ${currentTime}, день: ${currentDay}`);
+
     // Проверяем ежедневные ритуалы
     items.daily.forEach(item => {
         if (item.reminder && item.time && !item.completed) {
             if (item.time === currentTime) {
+                console.log(`[Reminders] Сработало ежедневное напоминание: ${item.name} в ${item.time}`);
                 showNotification(`Ежедневный ритуал: ${item.name}`);
             }
         }
@@ -1035,6 +1039,7 @@ function checkReminders() {
     items.master.forEach(item => {
         if (item.reminder && item.time && !item.completed) {
             if (item.time === currentTime) {
+                console.log(`[Reminders] Сработало напоминание задачи: ${item.name} в ${item.time}`);
                 showNotification(`Задача от Господина: ${item.name}`);
             }
         }
@@ -1044,7 +1049,13 @@ function checkReminders() {
     items.weekly.forEach(item => {
         if (item.reminder && item.day && item.time && !item.completed) {
             if (item.day === currentDay && item.time === currentTime) {
+                console.log(`[Reminders] Сработало еженедельное напоминание: ${item.name} в ${item.day} ${item.time}`);
                 showNotification(`Еженедельный ритуал: ${item.name}`);
+            } else {
+                // Отладочное логирование для еженедельных
+                if (item.day === currentDay) {
+                    console.log(`[Reminders] Еженедельное напоминание "${item.name}": день совпадает (${currentDay}), но время не совпадает (ожидается ${item.time}, сейчас ${currentTime})`);
+                }
             }
         }
     });
@@ -1124,49 +1135,111 @@ function formatDate(dateString) {
 
 // Показ уведомления
 async function showNotification(message, title = 'Напоминание') {
+    console.log('[Notification] Попытка показать уведомление:', { title, message, permission: Notification.permission });
+    
     // Проверяем поддержку уведомлений
-    if ('Notification' in window && Notification.permission === 'granted') {
-        // Определяем базовый путь для иконок
-        const basePath = window.location.pathname.replace(/\/[^\/]*$/, '') || '/calendar';
-        const iconPath = `${basePath}/icon-192.png`;
-        const notification = new Notification(title, {
-            body: message,
-            icon: iconPath,
-            badge: iconPath,
-            tag: 'reminder',
-            requireInteraction: false,
-            vibrate: [200, 100, 200]
-        });
-        
-        // Обработка клика по уведомлению
-        notification.onclick = () => {
-            window.focus();
-            notification.close();
-        };
-    } else if ('Notification' in window && Notification.permission !== 'denied') {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            // Определяем базовый путь для иконок
-            const basePath = window.location.pathname.replace(/\/[^\/]*$/, '') || '/calendar';
-            const iconPath = `${basePath}/icon-192.png`;
-            const notification = new Notification(title, {
-                body: message,
-                icon: iconPath,
-                badge: iconPath,
-                tag: 'reminder',
-                requireInteraction: false,
-                vibrate: [200, 100, 200]
-            });
-            
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-            };
+    if (!('Notification' in window)) {
+        console.warn('[Notification] Уведомления не поддерживаются в этом браузере');
+        return;
+    }
+
+    // Определяем базовый путь для иконок
+    const basePath = window.location.pathname.replace(/\/[^\/]*$/, '') || '/calendar';
+    const iconPath = `${basePath}/icon-192.png`;
+
+    // Проверяем разрешение
+    let permission = Notification.permission;
+    
+    if (permission === 'default') {
+        console.log('[Notification] Запрашиваем разрешение...');
+        permission = await Notification.requestPermission();
+        console.log('[Notification] Разрешение получено:', permission);
+    }
+
+    if (permission === 'granted') {
+        try {
+            // Пытаемся использовать Service Worker для показа уведомлений (более надежно на Android)
+            if ('serviceWorker' in navigator && serviceWorkerRegistration) {
+                console.log('[Notification] Используем Service Worker для показа уведомления');
+                
+                // Вибрация через Vibration API (для Android)
+                if ('vibrate' in navigator) {
+                    try {
+                        navigator.vibrate([200, 100, 200]);
+                        console.log('[Notification] Вибрация активирована');
+                    } catch (e) {
+                        console.warn('[Notification] Ошибка вибрации:', e);
+                    }
+                }
+                
+                await serviceWorkerRegistration.showNotification(title, {
+                    body: message,
+                    icon: iconPath,
+                    badge: iconPath,
+                    tag: 'reminder',
+                    requireInteraction: false,
+                    vibrate: [200, 100, 200],
+                    sound: '', // Звук по умолчанию
+                    data: {
+                        url: window.location.href
+                    }
+                });
+                console.log('[Notification] Уведомление показано через Service Worker');
+            } else {
+                // Fallback: используем обычный Notification API
+                console.log('[Notification] Используем Notification API');
+                
+                // Вибрация через Vibration API (для Android)
+                if ('vibrate' in navigator) {
+                    try {
+                        navigator.vibrate([200, 100, 200]);
+                        console.log('[Notification] Вибрация активирована');
+                    } catch (e) {
+                        console.warn('[Notification] Ошибка вибрации:', e);
+                    }
+                }
+                
+                const notification = new Notification(title, {
+                    body: message,
+                    icon: iconPath,
+                    badge: iconPath,
+                    tag: 'reminder',
+                    requireInteraction: false,
+                    vibrate: [200, 100, 200]
+                });
+                
+                console.log('[Notification] Уведомление создано:', notification);
+                
+                // Обработка клика по уведомлению
+                notification.onclick = () => {
+                    console.log('[Notification] Клик по уведомлению');
+                    window.focus();
+                    notification.close();
+                };
+
+                notification.onshow = () => {
+                    console.log('[Notification] Уведомление показано');
+                };
+
+                notification.onerror = (error) => {
+                    console.error('[Notification] Ошибка показа уведомления:', error);
+                };
+
+                notification.onclose = () => {
+                    console.log('[Notification] Уведомление закрыто');
+                };
+            }
+        } catch (error) {
+            console.error('[Notification] Ошибка при показе уведомления:', error);
         }
+    } else if (permission === 'denied') {
+        console.warn('[Notification] Разрешение на уведомления отклонено пользователем');
+    } else {
+        console.warn('[Notification] Разрешение на уведомления не предоставлено:', permission);
     }
 
     // Также логируем
-    console.log('Напоминание:', message);
+    console.log('[Notification] Напоминание:', message);
 }
 
 // Экранирование HTML

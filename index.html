@@ -6,9 +6,13 @@
     <title>Совиная напоминалка</title>
     
     <!-- Favicon и иконки -->
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- Используем абсолютные пути для лучшей совместимости -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/calendar/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/calendar/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/calendar/icon-512.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/calendar/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/calendar/icon-512.png">
+    <link rel="shortcut icon" href="/calendar/icon-192.png">
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#ea580c">
@@ -145,6 +149,18 @@
     <script src="script.js"></script>
     
     <script>
+        // Динамическая установка favicon для лучшей совместимости
+        (function() {
+            const basePath = window.location.pathname.replace(/\/[^\/]*$/, '') || '/calendar';
+            const favicon = document.querySelector('link[rel="icon"]') || document.createElement('link');
+            favicon.rel = 'icon';
+            favicon.type = 'image/png';
+            favicon.href = basePath + '/icon-192.png';
+            if (!document.querySelector('link[rel="icon"]')) {
+                document.head.appendChild(favicon);
+            }
+        })();
+        
         // Проверка поддержки PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
