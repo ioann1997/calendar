@@ -10,13 +10,13 @@
   "theme_color": "#ea580c",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/calendar/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/calendar/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -30,14 +30,14 @@
       "short_name": "Ежедневные",
       "description": "Открыть ежедневные ритуалы",
       "url": "/calendar/?tab=daily",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Задачи от Господина",
       "short_name": "Задачи",
       "description": "Открыть задачи от Господина",
       "url": "/calendar/?tab=master",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

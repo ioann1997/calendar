@@ -109,13 +109,8 @@ async function registerServiceWorker() {
                 });
             });
 
-            // Регистрация Service Worker для Firebase Messaging
-            if ('serviceWorker' in navigator) {
-                const messagingRegistration = await navigator.serviceWorker.register('/calendar/firebase-messaging-sw.js', {
-                    scope: '/calendar/'
-                });
-                console.log('[FCM] Firebase Messaging Service Worker зарегистрирован');
-            }
+            // Firebase Messaging будет использовать тот же Service Worker (sw.js)
+            // Не нужно регистрировать отдельный firebase-messaging-sw.js
         } catch (error) {
             console.error('[PWA] Ошибка регистрации Service Worker:', error);
         }
