@@ -4,16 +4,16 @@ const CACHE_NAME = 'sovinaya-napominalka-v2';
 const RUNTIME_CACHE = 'runtime-cache-v1';
 
 // Файлы для кэширования при установке
-const BASE_PATH = '/calendar';
+const BASE_PATH = '';
 const STATIC_CACHE_URLS = [
-  BASE_PATH + '/',
-  BASE_PATH + '/index.html',
-  BASE_PATH + '/styles.css',
-  BASE_PATH + '/script.js',
-  BASE_PATH + '/firebase-config.js',
-  BASE_PATH + '/manifest.json',
-  BASE_PATH + '/icon-192.png',
-  BASE_PATH + '/icon-512.png',
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/script.js',
+  '/firebase-config.js',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
   'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css',
   'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
@@ -49,8 +49,8 @@ messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.notification?.title || 'Напоминание';
     const notificationOptions = {
         body: payload.notification?.body || 'Не забудь о важном!',
-        icon: BASE_PATH + '/icon-192.png',
-        badge: BASE_PATH + '/icon-192.png',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
         tag: payload.data?.tag || 'reminder',
         data: payload.data || {},
         requireInteraction: false,
@@ -153,7 +153,7 @@ self.addEventListener('fetch', (event) => {
               return cachedResponse;
             }
             // Если нет в кэше, возвращаем офлайн страницу
-            return caches.match(BASE_PATH + '/index.html');
+            return caches.match('/index.html');
           });
         })
     );
@@ -228,13 +228,13 @@ self.addEventListener('notificationclick', (event) => {
         // Если есть открытое окно, фокусируемся на нем
         for (let i = 0; i < clientList.length; i++) {
           const client = clientList[i];
-          if (client.url.includes(BASE_PATH) && 'focus' in client) {
+          if (client.url && 'focus' in client) {
             return client.focus();
           }
         }
         // Если нет открытого окна, открываем новое
         if (clients.openWindow) {
-          return clients.openWindow(BASE_PATH + '/');
+          return clients.openWindow('/');
         }
       })
   );

@@ -89,8 +89,8 @@ function getLocalDateString(date = new Date()) {
 async function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         try {
-            const registration = await navigator.serviceWorker.register('/calendar/sw.js', {
-                scope: '/calendar/'
+            const registration = await navigator.serviceWorker.register('/sw.js', {
+                scope: '/'
             });
             console.log('[PWA] Service Worker зарегистрирован:', registration.scope);
 

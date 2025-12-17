@@ -2,21 +2,21 @@
   "name": "Совиная напоминалка",
   "short_name": "Напоминалка",
   "description": "Трекер ритуалов и задач с напоминаниями",
-  "start_url": "/calendar/",
-  "scope": "/calendar/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fff7ed",
   "theme_color": "#ea580c",
   "icons": [
     {
-      "src": "/calendar/icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/calendar/icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -29,14 +29,14 @@
       "name": "Ежедневные ритуалы",
       "short_name": "Ежедневные",
       "description": "Открыть ежедневные ритуалы",
-      "url": "/calendar/?tab=daily",
+      "url": "/?tab=daily",
       "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Задачи от Господина",
       "short_name": "Задачи",
       "description": "Открыть задачи от Господина",
-      "url": "/calendar/?tab=master",
+      "url": "/?tab=master",
       "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     }
   ]
