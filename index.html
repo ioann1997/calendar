@@ -134,6 +134,17 @@
                             <option value="sunday">Воскресенье</option>
                         </select>
                     </div>
+                    <!-- Дополнительные поля для ежедневных ритуалов -->
+                    <div class="form-group" id="color-group" style="display: none;">
+                        <label>Цвет ритуала:</label>
+                        <input type="color" id="item-color" value="#ea580c">
+                    </div>
+                    <div class="form-group" id="is-active-group" style="display: none;">
+                        <label>
+                            <input type="checkbox" id="item-is-active" checked>
+                            Ритуал активен
+                        </label>
+                    </div>
                     <div class="form-buttons">
                         <button type="submit" class="save-btn">Сохранить</button>
                         <button type="button" class="cancel-btn" onclick="closeModal()">Отмена</button>

@@ -191,15 +191,19 @@ async function initializeFirebaseMessaging() {
 
 // Сохранение FCM токена в Firebase
 async function saveFCMToken(token) {
-    if (!calendarId) return;
+    if (!calendarId) {
+        console.warn('[FCM] calendarId не установлен, токен не сохранен');
+        return;
+    }
     
     try {
+        console.log(`[FCM] Сохранение токена в календарь: ${calendarId}`);
         const calendarRef = db.collection('calendars').doc(calendarId);
         await calendarRef.update({
             fcmTokens: firebase.firestore.FieldValue.arrayUnion(token),
             lastTokenUpdate: firebase.firestore.FieldValue.serverTimestamp()
         });
-        console.log('[FCM] Токен сохранен в Firebase');
+        console.log(`[FCM] Токен сохранен в Firebase для календаря: ${calendarId}`);
     } catch (error) {
         console.error('[FCM] Ошибка сохранения токена:', error);
     }
@@ -472,15 +476,25 @@ function addItem(type) {
     
     document.getElementById('modal-title').textContent = titles[type] || 'Добавить задачу';
     
-    // Скрываем поля напоминаний для простых списков
+    // Скрываем/показываем поля в зависимости от типа
     if (isSimpleList) {
         document.getElementById('item-reminder').closest('.form-group').style.display = 'none';
         document.getElementById('time-group').style.display = 'none';
         document.getElementById('day-group').style.display = 'none';
+        document.getElementById('color-group').style.display = 'none';
+        document.getElementById('is-active-group').style.display = 'none';
     } else {
         document.getElementById('item-reminder').closest('.form-group').style.display = 'block';
         document.getElementById('time-group').style.display = 'none';
         document.getElementById('day-group').style.display = 'none';
+        // Поля color и is_active только для ежедневных ритуалов
+        if (type === 'daily') {
+            document.getElementById('color-group').style.display = 'block';
+            document.getElementById('is-active-group').style.display = 'block';
+        } else {
+            document.getElementById('color-group').style.display = 'none';
+            document.getElementById('is-active-group').style.display = 'none';
+        }
     }
     
     // Показываем модальное окно
@@ -506,9 +520,24 @@ function editItem(type, id) {
         document.getElementById('item-reminder').closest('.form-group').style.display = 'none';
         document.getElementById('time-group').style.display = 'none';
         document.getElementById('day-group').style.display = 'none';
+        document.getElementById('color-group').style.display = 'none';
+        document.getElementById('is-active-group').style.display = 'none';
     } else {
         document.getElementById('item-reminder').closest('.form-group').style.display = 'block';
         document.getElementById('item-reminder').checked = item.reminder || false;
+        
+        // Заполняем поля для ежедневных ритуалов
+        if (type === 'daily') {
+            document.getElementById('color-group').style.display = 'block';
+            document.getElementById('is-active-group').style.display = 'block';
+            if (item.color) {
+                document.getElementById('item-color').value = item.color;
+            }
+            document.getElementById('item-is-active').checked = item.is_active !== false;
+        } else {
+            document.getElementById('color-group').style.display = 'none';
+            document.getElementById('is-active-group').style.display = 'none';
+        }
         
         if (item.reminder) {
             document.getElementById('time-group').style.display = 'block';
@@ -560,6 +589,10 @@ function saveItem() {
         startDate = todayDate;
     }
 
+    // Получаем дополнительные поля для ежедневных ритуалов
+    const color = (currentTab === 'daily') ? (document.getElementById('item-color')?.value || '#ea580c') : undefined;
+    const isActive = (currentTab === 'daily') ? (document.getElementById('item-is-active')?.checked !== false) : undefined;
+
     const item = {
         id: editingItemId || Date.now().toString(),
         name,
@@ -567,6 +600,9 @@ function saveItem() {
         reminder: isSimpleList ? false : reminder,
         time: isSimpleList ? null : time,
         day: isSimpleList ? null : day,
+        // Для ежедневных ритуалов добавляем color и is_active
+        color: currentTab === 'daily' ? color : undefined,
+        is_active: currentTab === 'daily' ? isActive : undefined,
         completed: editingItemId ? (baseExisting?.completed || false) : false,
         completedDate: editingItemId ? baseExisting?.completedDate : null,
         // для ежедневных и еженедельных ритуалов сохраняем массив выполненных дат
@@ -597,6 +633,14 @@ function saveItem() {
     
     if (item.day === null || item.day === undefined) {
         delete item.day;
+    }
+    
+    if (item.color === undefined) {
+        delete item.color;
+    }
+    
+    if (item.is_active === undefined) {
+        delete item.is_active;
     }
 
     if (editingItemId) {
@@ -830,14 +874,22 @@ function buildCalendarEvents() {
     horizon.setFullYear(horizon.getFullYear() + 1); // горизонт событий на год вперёд
 
     // Ежедневные ритуалы: показываем все дни от startDate до горизонта
-    // completedDate используется только для визуального отображения (зачеркнутые)
+    // Показываем только активные ритуалы (is_active !== false)
     (items.daily || []).forEach((item) => {
+        // Пропускаем неактивные ритуалы
+        if (item.is_active === false) {
+            return;
+        }
+        
         const startDateStr = item.startDate || getLocalDateString();
         const start = new Date(startDateStr + 'T00:00:00');
 
         if (isNaN(start.getTime())) {
             return;
         }
+
+        // Получаем цвет ритуала
+        const ritualColor = item.color || '#ea580c';
 
         // Показываем все дни от startDate до горизонта, независимо от completedDate
         for (let d = new Date(start); d <= horizon; d.setDate(d.getDate() + 1)) {
@@ -862,9 +914,14 @@ function buildCalendarEvents() {
                 title: item.name,
                 start: `${dateKey}T${timePart}`,
                 allDay: !item.time,
+                backgroundColor: isCompleted ? '#6b7280' : ritualColor,
+                borderColor: isCompleted ? '#4b5563' : ritualColor,
+                textColor: isCompleted ? '#d1d5db' : '#ffffff',
                 classNames: ['fc-event-daily', isCompleted ? 'fc-event-completed' : ''].filter(Boolean),
                 extendedProps: {
-                    fullTitle: item.name
+                    fullTitle: item.name,
+                    isCompleted: isCompleted,
+                    ritualColor: ritualColor
                 }
             });
         }
@@ -955,22 +1012,26 @@ function renderList(type) {
         return;
     }
 
-    // Для правил и запретов - простой список без чекбоксов
-    const isSimpleList = type === 'rules' || type === 'bans';
+    // Для правил, запретов и ежедневных ритуалов - простой список без чекбоксов
+    // Ежедневные ритуалы отмечаются только через календарь
+    const isSimpleList = type === 'rules' || type === 'bans' || type === 'daily';
     
     list.innerHTML = typeItems.map(item => {
-        const completedClass = item.completed ? 'completed' : '';
+        // Для ежедневных ритуалов не показываем статус выполнения в списке
+        const completedClass = (type === 'daily') ? '' : (item.completed ? 'completed' : '');
         const reminderInfo = item.reminder && item.time 
             ? `<span>⏰ ${item.time}</span>` 
             : '';
         const dayInfo = item.day 
             ? `<span>📅 ${getDayName(item.day)}</span>` 
             : '';
-        const completedInfo = item.completed && item.completedDate
+        // Для ежедневных ритуалов не показываем информацию о выполнении
+        const completedInfo = (type === 'daily') ? '' : (item.completed && item.completedDate
             ? `<span>✅ Выполнено: ${formatDate(item.completedDate)}</span>`
-            : '';
+            : '');
 
-        const checkboxHtml = isSimpleList ? '' : `
+        // Чекбоксы только для master и weekly, не для daily
+        const checkboxHtml = (isSimpleList || type === 'daily') ? '' : `
             <input 
                 type="checkbox" 
                 class="item-checkbox" 
@@ -985,11 +1046,25 @@ function renderList(type) {
                 ${completedInfo}
             </div>`;
 
+        // Для ежедневных ритуалов добавляем цветной индикатор
+        const colorIndicator = (type === 'daily' && item.color) 
+            ? `<span class="color-indicator" style="background-color: ${item.color}; border-color: ${item.color};"></span>`
+            : '';
+        
+        // Для ежедневных ритуалов показываем статус активности
+        const activeStatus = (type === 'daily' && item.is_active === false)
+            ? `<span class="inactive-badge">Неактивен</span>`
+            : '';
+
         return `
             <div class="item ${completedClass}">
                 ${checkboxHtml}
+                ${colorIndicator}
                 <div class="item-content">
-                    <div class="item-name">${escapeHtml(item.name)}</div>
+                    <div class="item-name">
+                        ${escapeHtml(item.name)}
+                        ${activeStatus}
+                    </div>
                     ${item.description ? `<div class="item-description">${escapeHtml(item.description)}</div>` : ''}
                     ${metaHtml}
                 </div>

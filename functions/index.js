@@ -66,11 +66,15 @@ exports.checkAndSendReminders = onSchedule(
         const calendarId = calendarDoc.id;
         const data = calendarDoc.data();
         
+        console.log(`📅 Проверка календаря: ${calendarId}`);
+        
         // Получаем FCM токены для этого календаря
         const fcmTokens = data.fcmTokens || [];
         
+        console.log(`📱 Календарь ${calendarId}: найдено ${fcmTokens.length} FCM токенов`);
+        
         if (fcmTokens.length === 0) {
-          console.log(`📱 Календарь ${calendarId}: нет FCM токенов (пользователь не установил приложение)`);
+          console.log(`⚠️ Календарь ${calendarId}: нет FCM токенов (пользователь не установил приложение или токен не сохранен)`);
           continue;
         }
         
@@ -78,21 +82,30 @@ exports.checkAndSendReminders = onSchedule(
         const daily = data.daily || [];
         for (const item of daily) {
           if (item.reminder && item.time === currentTime && !item.completed) {
-            const message = {
+            // Создаем сообщения для каждого токена
+            const messages = fcmTokens.map(token => ({
               notification: {
                 title: '🦉 Напоминание',
                 body: `Ежедневный ритуал: ${item.name}`
               },
-              tokens: fcmTokens
-            };
+              token: token
+            }));
             
             try {
-              const response = await admin.messaging().sendMulticast(message);
-              console.log(`✅ Ежедневный ритуал "${item.name}": отправлено ${response.successCount} уведомлений`);
-              totalSent += response.successCount;
+              // Используем sendEach для отправки множественных уведомлений
+              const response = await admin.messaging().sendEach(messages);
+              const successCount = response.responses.filter(r => r.success).length;
+              console.log(`✅ Ежедневный ритуал "${item.name}": отправлено ${successCount} уведомлений`);
+              totalSent += successCount;
               
-              if (response.failureCount > 0) {
-                console.log(`❌ Ошибок: ${response.failureCount}`);
+              const failureCount = response.responses.filter(r => !r.success).length;
+              if (failureCount > 0) {
+                console.log(`❌ Ошибок: ${failureCount}`);
+                response.responses.forEach((resp, idx) => {
+                  if (!resp.success) {
+                    console.error(`  Ошибка для токена ${idx}:`, resp.error);
+                  }
+                });
               }
             } catch (error) {
               console.error('❌ Ошибка отправки ежедневного ритуала:', error);
@@ -104,18 +117,31 @@ exports.checkAndSendReminders = onSchedule(
         const master = data.master || [];
         for (const item of master) {
           if (item.reminder && item.time === currentTime && !item.completed) {
-            const message = {
+            // Создаем сообщения для каждого токена
+            const messages = fcmTokens.map(token => ({
               notification: {
                 title: '🦉 Напоминание',
                 body: `Задача от Господина: ${item.name}`
               },
-              tokens: fcmTokens
-            };
+              token: token
+            }));
             
             try {
-              const response = await admin.messaging().sendMulticast(message);
-              console.log(`✅ Задача от Господина "${item.name}": отправлено ${response.successCount} уведомлений`);
-              totalSent += response.successCount;
+              // Используем sendEach для отправки множественных уведомлений
+              const response = await admin.messaging().sendEach(messages);
+              const successCount = response.responses.filter(r => r.success).length;
+              console.log(`✅ Задача от Господина "${item.name}": отправлено ${successCount} уведомлений`);
+              totalSent += successCount;
+              
+              const failureCount = response.responses.filter(r => !r.success).length;
+              if (failureCount > 0) {
+                console.log(`❌ Ошибок: ${failureCount}`);
+                response.responses.forEach((resp, idx) => {
+                  if (!resp.success) {
+                    console.error(`  Ошибка для токена ${idx}:`, resp.error);
+                  }
+                });
+              }
             } catch (error) {
               console.error('❌ Ошибка отправки задачи от Господина:', error);
             }
@@ -126,18 +152,31 @@ exports.checkAndSendReminders = onSchedule(
         const weekly = data.weekly || [];
         for (const item of weekly) {
           if (item.reminder && item.day === currentDay && item.time === currentTime && !item.completed) {
-            const message = {
+            // Создаем сообщения для каждого токена
+            const messages = fcmTokens.map(token => ({
               notification: {
                 title: '🦉 Напоминание',
                 body: `Еженедельный ритуал: ${item.name}`
               },
-              tokens: fcmTokens
-            };
+              token: token
+            }));
             
             try {
-              const response = await admin.messaging().sendMulticast(message);
-              console.log(`✅ Еженедельный ритуал "${item.name}": отправлено ${response.successCount} уведомлений`);
-              totalSent += response.successCount;
+              // Используем sendEach для отправки множественных уведомлений
+              const response = await admin.messaging().sendEach(messages);
+              const successCount = response.responses.filter(r => r.success).length;
+              console.log(`✅ Еженедельный ритуал "${item.name}": отправлено ${successCount} уведомлений`);
+              totalSent += successCount;
+              
+              const failureCount = response.responses.filter(r => !r.success).length;
+              if (failureCount > 0) {
+                console.log(`❌ Ошибок: ${failureCount}`);
+                response.responses.forEach((resp, idx) => {
+                  if (!resp.success) {
+                    console.error(`  Ошибка для токена ${idx}:`, resp.error);
+                  }
+                });
+              }
             } catch (error) {
               console.error('❌ Ошибка отправки еженедельного ритуала:', error);
             }

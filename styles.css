@@ -75,16 +75,10 @@ header h1 {
 }
 
 .calendar-info {
-<<<<<<< HEAD
     position: relative;
     margin-top: 16px;
     padding-top: 14px;
     border-top: 1px dashed rgba(148, 163, 184, 0.5);
-=======
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -95,15 +89,11 @@ header h1 {
 .calendar-id {
     font-size: 0.9em;
     opacity: 0.9;
-<<<<<<< HEAD
     color: #cbd5f5;
-=======
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .calendar-id span {
     font-weight: 600;
-<<<<<<< HEAD
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     background: rgba(15, 23, 42, 0.85);
     padding: 4px 8px;
@@ -133,28 +123,6 @@ header h1 {
         0 12px 26px rgba(56, 189, 248, 0.5),
         0 0 32px rgba(56, 189, 248, 0.6);
     background: radial-gradient(circle at 30% 0%, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
-=======
-    font-family: monospace;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-.share-btn {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: all 0.2s;
-}
-
-.share-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-1px);
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .tabs {
@@ -218,14 +186,9 @@ header h1 {
 
 .tab-content {
     display: none;
-<<<<<<< HEAD
     padding: 26px 30px 30px;
     min-height: 400px;
     background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.25), transparent 55%);
-=======
-    padding: 30px;
-    min-height: 400px;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .tab-content.active {
@@ -236,7 +199,6 @@ header h1 {
     display: flex;
     justify-content: space-between;
     align-items: center;
-<<<<<<< HEAD
     margin-bottom: 24px;
 }
 
@@ -269,32 +231,6 @@ header h1 {
     box-shadow:
         0 14px 32px rgba(250, 204, 21, 0.6),
         0 0 36px rgba(234, 179, 8, 0.6);
-=======
-    margin-bottom: 25px;
-}
-
-.section-header h2 {
-    font-size: 1.8em;
-    color: #333;
-}
-
-.add-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: 600;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.add-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .add-btn:active {
@@ -304,7 +240,6 @@ header h1 {
 .items-list {
     display: flex;
     flex-direction: column;
-<<<<<<< HEAD
     gap: 14px;
 }
 
@@ -344,38 +279,33 @@ header h1 {
     opacity: 0.9;
     background: radial-gradient(circle at bottom left, rgba(22, 163, 74, 0.15), rgba(15, 23, 42, 0.98));
     border-color: rgba(34, 197, 94, 0.85);
-=======
-    gap: 15px;
-}
-
-.item {
-    background: #f9f9f9;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    transition: all 0.3s;
-    position: relative;
-}
-
-.item:hover {
-    border-color: #667eea;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-}
-
-.item.completed {
-    opacity: 0.6;
-    background: #e8f5e9;
-    border-color: #4caf50;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .item.completed .item-name {
     text-decoration: line-through;
-<<<<<<< HEAD
     opacity: 0.8;
+}
+
+/* Цветной индикатор для ежедневных ритуалов */
+.color-indicator {
+    width: 4px;
+    height: 100%;
+    min-height: 40px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px currentColor;
+}
+
+/* Бейдж неактивного ритуала */
+.inactive-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: rgba(107, 114, 128, 0.3);
+    border: 1px solid rgba(107, 114, 128, 0.5);
+    border-radius: 4px;
+    font-size: 0.75em;
+    color: #9ca3af;
 }
 
 .item-checkbox {
@@ -383,15 +313,6 @@ header h1 {
     height: 22px;
     cursor: pointer;
     accent-color: #eab308;
-=======
-}
-
-.item-checkbox {
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    accent-color: #667eea;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .item-content {
@@ -399,22 +320,14 @@ header h1 {
 }
 
 .item-name {
-<<<<<<< HEAD
     font-size: 1.05em;
     font-weight: 600;
     color: #f9fafb;
     margin-bottom: 4px;
-=======
-    font-size: 1.1em;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 5px;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .item-description {
     font-size: 0.9em;
-<<<<<<< HEAD
     color: #cbd5f5;
     margin-top: 4px;
 }
@@ -425,24 +338,11 @@ header h1 {
     margin-top: 8px;
     display: flex;
     gap: 12px;
-=======
-    color: #666;
-    margin-top: 5px;
-}
-
-.item-meta {
-    font-size: 0.85em;
-    color: #999;
-    margin-top: 8px;
-    display: flex;
-    gap: 15px;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
     flex-wrap: wrap;
 }
 
 .item-actions {
     display: flex;
-<<<<<<< HEAD
     gap: 8px;
 }
 
@@ -466,33 +366,10 @@ header h1 {
     background: rgba(127, 29, 29, 0.85);
     border-color: rgba(248, 113, 113, 0.9);
     color: #fee2e2;
-=======
-    gap: 10px;
-}
-
-.btn-icon {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px 10px;
-    border-radius: 5px;
-    transition: background 0.2s;
-}
-
-.btn-icon:hover {
-    background: #e0e0e0;
-}
-
-.btn-delete:hover {
-    background: #ffebee;
-    color: #f44336;
->>>>>>> 4ac112bd6ccc715026a59727989a0da75ac6e88a
 }
 
 .empty-state {
     text-align: center;
-<<<<<<< HEAD
     padding: 52px 20px;
     color: #9ca3af;
 }
@@ -636,9 +513,24 @@ header h1 {
 
 /* Выполненные события */
 .fc-event-completed {
-    opacity: 0.5 !important;
+    opacity: 0.6 !important;
     text-decoration: line-through !important;
-    filter: grayscale(0.7);
+    filter: grayscale(0.8);
+    background-color: #6b7280 !important;
+    border-color: #4b5563 !important;
+    position: relative;
+}
+
+/* Галочка для выполненных событий */
+.fc-event-completed::before {
+    content: '✓';
+    position: absolute;
+    right: 4px;
+    top: 2px;
+    font-weight: bold;
+    color: #10b981;
+    font-size: 12px;
+    z-index: 1;
 }
 
 /* Убеждаемся, что все события кликабельны */
