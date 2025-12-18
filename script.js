@@ -28,23 +28,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Регистрация Service Worker для PWA
     registerServiceWorker();
     
+    // Инициализируем календарь для получения calendarId (нужно для сохранения токена)
     await initializeCalendar();
-    setupTabs();
-    setupForm();
-    initFullCalendar();
-    checkReminders();
-    setupReminderCheck();
     
-    // Инициализация Firebase Cloud Messaging для Push-уведомлений
-    initializeFirebaseMessaging();
+    // Проверяем уведомления ПЕРЕД полной инициализацией приложения
+    // Если уведомления не включены, приложение будет заблокировано модальным окном
+    checkAndShowNotificationsModal();
     
-    // Запрос разрешения на уведомления при загрузке
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // Проверяем, установлено ли приложение как PWA
+    const isPWA = isPWAInstalled();
+    
+    // Инициализируем приложение
+    // Для PWA: только если уведомления включены
+    // Для обычного браузера: всегда
+    if (isPWA) {
+        // Для PWA уведомления обязательны
+        if ('Notification' in window && Notification.permission === 'granted') {
+            setupTabs();
+            setupForm();
+            initFullCalendar();
+            checkReminders();
+            setupReminderCheck();
+            
+            // Проверка напоминаний каждую минуту
+            setInterval(checkReminders, 60000);
+        } else {
+            // Если уведомления не включены в PWA, приложение заблокировано модальным окном
+            console.log('[App] PWA заблокировано: уведомления не включены');
+        }
+    } else {
+        // Для обычного браузера инициализируем приложение всегда
+        setupTabs();
+        setupForm();
+        initFullCalendar();
+        checkReminders();
+        setupReminderCheck();
+        
+        // Проверка напоминаний каждую минуту
+        setInterval(checkReminders, 60000);
     }
-    
-    // Проверка напоминаний каждую минуту
-    setInterval(checkReminders, 60000);
 });
 
 // Инициализация календаря
@@ -164,59 +186,91 @@ async function initializeFirebaseMessaging() {
     }
 
     try {
-        // Запрашиваем разрешение на уведомления
-        const permission = await Notification.requestPermission();
+        console.log('[FCM] Начало инициализации Firebase Cloud Messaging');
+        
+        // Проверяем текущее разрешение
+        let permission = Notification.permission;
+        console.log('[FCM] Текущее разрешение:', permission);
+        
+        // Запрашиваем разрешение на уведомления, если еще не запрашивали
+        if (permission === 'default') {
+            permission = await Notification.requestPermission();
+            console.log('[FCM] Результат запроса разрешения:', permission);
+        }
+        
         if (permission !== 'granted') {
-            console.log('[FCM] Разрешение на уведомления не предоставлено');
+            console.warn('[FCM] Разрешение на уведомления не предоставлено:', permission);
+            console.warn('[FCM] Push-уведомления не будут работать. Разрешите уведомления в настройках браузера.');
             return;
         }
 
         // Получаем токен FCM
         const messaging = firebase.messaging();
+        console.log('[FCM] Firebase Messaging инициализирован');
         
         // Ждем готовности Service Worker и передаем его в getToken
         // Это нужно, чтобы Firebase использовал существующий Service Worker
         // вместо попытки зарегистрировать firebase-messaging-sw.js
         let registration = serviceWorkerRegistration;
         if (!registration) {
+            console.log('[FCM] Ожидание готовности Service Worker...');
             registration = await navigator.serviceWorker.ready;
+            console.log('[FCM] Service Worker готов:', registration);
+        } else {
+            console.log('[FCM] Service Worker уже зарегистрирован');
         }
 
         // Получаем токен с указанием Service Worker регистрации
+        // VAPID ключ не нужен для Firebase Cloud Messaging - он используется автоматически
+        console.log('[FCM] Получение FCM токена...');
         fcmToken = await messaging.getToken({
-            vapidKey: null, // Если используешь VAPID ключ, укажи его здесь
             serviceWorkerRegistration: registration
         });
 
         if (fcmToken) {
-            console.log('[FCM] Токен получен:', fcmToken);
+            console.log('[FCM] ✅ Токен успешно получен:', fcmToken.substring(0, 20) + '...');
             // Сохраняем токен в Firebase для отправки уведомлений
             await saveFCMToken(fcmToken);
+            console.log('[FCM] ✅ Токен сохранен в Firebase. Push-уведомления должны работать.');
         } else {
-            console.warn('[FCM] Не удалось получить токен');
+            console.error('[FCM] ❌ Не удалось получить токен. Проверьте конфигурацию Firebase.');
         }
 
         // Обработка входящих сообщений (когда приложение открыто)
         messaging.onMessage((payload) => {
-            console.log('[FCM] Получено сообщение:', payload);
+            console.log('[FCM] 📨 Получено push-сообщение:', payload);
             showNotification(payload.notification?.body || payload.data?.body || 'Напоминание');
         });
 
         // Обработка обновления токена
-        // В Firebase 10.7.1+ onTokenRefresh заменен на onTokenRefresh
-        // Используем обработчик через messaging.onTokenRefresh (если доступен)
-        // или слушаем события через messaging.onMessage
-        // Примечание: в новых версиях токен обновляется автоматически при вызове getToken()
+        messaging.onTokenRefresh(async () => {
+            console.log('[FCM] Токен обновлен');
+            const newToken = await messaging.getToken({
+                serviceWorkerRegistration: registration
+            });
+            if (newToken) {
+                fcmToken = newToken;
+                await saveFCMToken(newToken);
+            }
+        });
 
     } catch (error) {
-        console.error('[FCM] Ошибка инициализации:', error);
+        console.error('[FCM] ❌ Ошибка инициализации:', error);
+        console.error('[FCM] Детали ошибки:', error.message, error.stack);
     }
 }
 
 // Сохранение FCM токена в Firebase
 async function saveFCMToken(token) {
     if (!calendarId) {
-        console.warn('[FCM] calendarId не установлен, токен не сохранен');
+        console.warn('[FCM] ⚠️ calendarId не установлен, токен не сохранен. Дождитесь инициализации календаря.');
+        // Попробуем сохранить позже, когда calendarId будет установлен
+        setTimeout(async () => {
+            if (calendarId && fcmToken) {
+                console.log('[FCM] Повторная попытка сохранения токена...');
+                await saveFCMToken(fcmToken);
+            }
+        }, 2000);
         return;
     }
     
@@ -226,7 +280,13 @@ async function saveFCMToken(token) {
         
         // Получаем текущие токены
         const calendarDoc = await calendarRef.get();
+        if (!calendarDoc.exists) {
+            console.error('[FCM] ❌ Календарь не найден в Firebase:', calendarId);
+            return;
+        }
+        
         const currentTokens = calendarDoc.data()?.fcmTokens || [];
+        console.log(`[FCM] Текущие токены в Firebase: ${currentTokens.length}`);
         
         // Получаем старый токен этого устройства из localStorage
         const oldToken = localStorage.getItem('fcmToken');
@@ -237,6 +297,9 @@ async function saveFCMToken(token) {
         // Добавляем новый токен, если его еще нет
         if (!updatedTokens.includes(token)) {
             updatedTokens.push(token);
+            console.log('[FCM] Новый токен добавлен в список');
+        } else {
+            console.log('[FCM] Токен уже существует в списке');
         }
         
         // Ограничиваем количество токенов (максимум 3 - для нескольких устройств)
@@ -255,9 +318,11 @@ async function saveFCMToken(token) {
         // Сохраняем новый токен в localStorage для следующего обновления
         localStorage.setItem('fcmToken', token);
         
-        console.log(`[FCM] Токен сохранен в Firebase для календаря: ${calendarId} (всего токенов: ${updatedTokens.length})`);
+        console.log(`[FCM] ✅ Токен успешно сохранен в Firebase для календаря: ${calendarId} (всего токенов: ${updatedTokens.length})`);
+        console.log('[FCM] 💡 Убедитесь, что Firebase Cloud Function "checkAndSendReminders" развернута для отправки push-уведомлений');
     } catch (error) {
-        console.error('[FCM] Ошибка сохранения токена:', error);
+        console.error('[FCM] ❌ Ошибка сохранения токена:', error);
+        console.error('[FCM] Детали ошибки:', error.message);
     }
 }
 
@@ -1342,6 +1407,152 @@ function updateThemeIcon(isDark) {
     }
 }
 
+// Проверка, установлено ли приложение как PWA
+function isPWAInstalled() {
+    // Проверка для Android/Chrome - display-mode: standalone
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+        return true;
+    }
+    
+    // Проверка для iOS Safari - navigator.standalone
+    if (window.navigator.standalone === true) {
+        return true;
+    }
+    
+    return false;
+}
+
+// Проверка и показ модального окна для уведомлений
+function checkAndShowNotificationsModal() {
+    // Проверяем, установлено ли приложение как PWA
+    const isPWA = isPWAInstalled();
+    console.log('[Notifications] PWA установлено:', isPWA);
+    
+    // Если приложение не установлено как PWA, уведомления не обязательны
+    if (!isPWA) {
+        console.log('[Notifications] Приложение не установлено как PWA, уведомления не обязательны');
+        // Инициализируем FCM, если разрешение уже дано (но не требуем его)
+        if ('Notification' in window && Notification.permission === 'granted' && calendarId) {
+            initializeFirebaseMessaging();
+        }
+        return;
+    }
+    
+    // Для PWA уведомления обязательны
+    if (!('Notification' in window)) {
+        console.warn('[Notifications] Браузер не поддерживает уведомления');
+        // Если уведомления не поддерживаются, все равно показываем модальное окно с предупреждением
+        showNotificationsModal();
+        return;
+    }
+    
+    const permission = Notification.permission;
+    console.log('[Notifications] Текущее разрешение:', permission);
+    
+    if (permission !== 'granted') {
+        // Показываем модальное окно, если уведомления не включены (только для PWA)
+        showNotificationsModal();
+    } else {
+        // Уведомления уже включены - инициализируем FCM
+        if (calendarId) {
+            initializeFirebaseMessaging();
+        } else {
+            setTimeout(() => {
+                if (calendarId) {
+                    initializeFirebaseMessaging();
+                }
+            }, 1000);
+        }
+    }
+}
+
+// Показать модальное окно для уведомлений
+function showNotificationsModal() {
+    const modal = document.getElementById('notifications-required-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        // Блокируем прокрутку страницы
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// Скрыть модальное окно для уведомлений
+function hideNotificationsModal() {
+    const modal = document.getElementById('notifications-required-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        // Разблокируем прокрутку страницы
+        document.body.style.overflow = '';
+    }
+}
+
+// Запрос разрешения на уведомления (вызывается из модального окна)
+async function requestNotificationsPermission() {
+    if (!('Notification' in window)) {
+        alert('Ваш браузер не поддерживает уведомления. Пожалуйста, используйте современный браузер (Chrome, Firefox, Safari, Edge).');
+        return;
+    }
+    
+    const permission = Notification.permission;
+    
+    if (permission === 'granted') {
+        // Уведомления уже включены
+        hideNotificationsModal();
+        if (calendarId) {
+            await initializeFirebaseMessaging();
+        }
+        return;
+    }
+    
+    if (permission === 'denied') {
+        // Уведомления заблокированы - показываем инструкцию
+        alert('Уведомления заблокированы в настройках браузера.\n\nДля включения:\n\nChrome/Edge (Android):\nНастройки → Уведомления → Разрешения сайтов → Найдите этот сайт → Разрешить\n\nSafari (iOS):\nНастройки → Safari → Уведомления → Найдите этот сайт → Разрешить\n\nFirefox:\nНастройки → Приватность → Разрешения → Уведомления → Найдите этот сайт → Разрешить\n\nПосле включения обновите страницу.');
+        return;
+    }
+    
+    // Запрашиваем разрешение
+    try {
+        const result = await Notification.requestPermission();
+        console.log('[Notifications] Результат запроса разрешения:', result);
+        
+        if (result === 'granted') {
+            console.log('[Notifications] ✅ Разрешение получено');
+            hideNotificationsModal();
+            
+            // Инициализируем приложение после получения разрешения
+            if (!isInitialized) {
+                setupTabs();
+                setupForm();
+                initFullCalendar();
+                checkReminders();
+                setupReminderCheck();
+                isInitialized = true;
+            }
+            
+            // Инициализируем FCM после получения разрешения
+            if (calendarId) {
+                await initializeFirebaseMessaging();
+            } else {
+                // Если calendarId еще не установлен, ждем
+                setTimeout(async () => {
+                    if (calendarId) {
+                        await initializeFirebaseMessaging();
+                    }
+                }, 1000);
+            }
+        } else {
+            console.log('[Notifications] ❌ Разрешение отклонено:', result);
+            // Модальное окно остается открытым, пользователь не может использовать приложение
+            alert('Уведомления необходимы для работы приложения. Пожалуйста, разрешите уведомления, чтобы продолжить.');
+        }
+    } catch (error) {
+        console.error('[Notifications] Ошибка запроса разрешения:', error);
+        alert('Ошибка при запросе разрешения на уведомления: ' + error.message);
+    }
+}
+
 // Переключение темы
 function toggleTheme() {
     const html = document.documentElement;
@@ -1385,8 +1596,9 @@ function checkReminders() {
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const currentDay = getCurrentDayName();
 
-    // Отладочное логирование (можно отключить в продакшене)
-    console.log(`[Reminders] Проверка напоминаний: ${currentTime}, день: ${currentDay}`);
+    // Отладочное логирование
+    console.log(`[Reminders] Проверка локальных напоминаний: ${currentTime}, день: ${currentDay}`);
+    console.log(`[Reminders] Примечание: для push-уведомлений (когда приложение закрыто) используется Firebase Cloud Function`);
 
     // Проверяем ежедневные ритуалы
     items.daily.forEach(item => {

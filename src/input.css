@@ -92,6 +92,10 @@
   }
   
   /* Заголовки - Gabriela */
+  h1 {
+    font-family: 'Gabriela', serif !important;
+  }
+  
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Gabriela', serif !important;
   }
@@ -114,6 +118,12 @@
   
   /* Мобильная версия - еще меньше размер заголовков секций */
   @media (max-width: 768px) {
+    /* Уменьшаем главный заголовок на мобильных */
+    h1 {
+      font-size: 1.5rem !important; /* text-2xl вместо text-3xl */
+      line-height: 1.75rem !important;
+    }
+    
     .section-title {
       font-size: 1.125rem; /* text-lg */
       line-height: 1.5rem;
@@ -549,6 +559,43 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.25rem;
+    }
+  }
+  
+  /* Модальное окно для уведомлений */
+  #notifications-required-modal {
+    animation: fadeIn 0.3s ease-in-out;
+    pointer-events: auto;
+  }
+  
+  #notifications-required-modal > div {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  /* Блокируем весь интерфейс, когда модальное окно открыто */
+  body:has(#notifications-required-modal:not(.hidden)) > div > *:not(#notifications-required-modal) {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: blur(2px);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
     }
   }
   
