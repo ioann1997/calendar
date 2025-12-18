@@ -1,7 +1,7 @@
 // Service Worker для PWA и Firebase Cloud Messaging
 // Версия кэша - обновляй при изменении файлов
-const CACHE_NAME = 'sovinaya-napominalka-v4';
-const RUNTIME_CACHE = 'runtime-cache-v3';
+const CACHE_NAME = 'sovinaya-napominalka-v5';
+const RUNTIME_CACHE = 'runtime-cache-v4';
 
 // Определяем базовый путь автоматически (для GitHub Pages)
 // Если sw.js находится в /calendar/sw.js, то BASE_PATH будет /calendar
@@ -53,12 +53,28 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 // Обработка фоновых сообщений от Firebase
+// ПРИМЕЧАНИЕ: Отключено для предотвращения дублирования уведомлений
+// Когда Firebase отправляет уведомление с полем "notification", оно автоматически показывается системой
+// Если включить onBackgroundMessage, будет показываться два уведомления:
+// 1. Системное уведомление от Firebase (правильное, с правильным текстом из payload.notification.body)
+// 2. Уведомление от Service Worker (дубликат)
+// 
+// Решение: не обрабатывать сообщения с полем "notification", так как они уже показываются автоматически
 messaging.onBackgroundMessage((payload) => {
     console.log('[FCM] Получено фоновое сообщение:', payload);
     
-    const notificationTitle = payload.notification?.title || 'Напоминание';
+    // Если уведомление уже содержит поле "notification", Firebase покажет его автоматически
+    // Не нужно показывать его еще раз через Service Worker
+    if (payload.notification) {
+        console.log('[FCM] Уведомление уже будет показано автоматически Firebase, пропускаем');
+        return;
+    }
+    
+    // Если нет поля "notification", но есть данные, можно показать уведомление вручную
+    // Но в нашем случае все уведомления отправляются с полем "notification", так что этот код не выполнится
+    const notificationTitle = payload.data?.title || 'Напоминание';
     const notificationOptions = {
-        body: payload.notification?.body || 'Не забудь о важном!',
+        body: payload.data?.body || 'Не забудь о важном!',
         icon: BASE_PATH + '/icon-192.png',
         badge: BASE_PATH + '/icon-192.png',
         tag: payload.data?.tag || 'reminder',
