@@ -13,3 +13,17 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// Включаем офлайн-режим с IndexedDB persistence для лучшей работы без интернета
+try {
+    db.enablePersistence({
+        synchronizeTabs: true
+    }).catch((err) => {
+        // Игнорируем ошибки, если persistence уже включен или не поддерживается
+        if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
+            console.warn('Не удалось включить офлайн-режим Firestore:', err);
+        }
+    });
+} catch (e) {
+    // Игнорируем ошибки инициализации persistence
+}
+

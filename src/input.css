@@ -166,10 +166,20 @@
     background-color: transparent;
     color: var(--md-on-surface-variant);
     border: none;
-    @apply w-10 h-10 rounded-full flex items-center justify-center
+    @apply w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
            hover:bg-md-surface-variant active:bg-md-surface-variant/80
            transition-all duration-200;
     cursor: pointer;
+  }
+  
+  /* Мобильная версия - уменьшаем размер кнопок */
+  @media (max-width: 768px) {
+    .btn-icon {
+      @apply w-8 h-8;
+    }
+    .btn-icon svg {
+      @apply w-4 h-4;
+    }
   }
   
   /* FAB (Floating Action Button) - большая круглая кнопка */
@@ -277,6 +287,17 @@
     @apply text-xs mt-2 flex gap-3 flex-wrap;
   }
   
+  /* Item Description - ограничение до 2-3 строк */
+  .item-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    max-height: calc(1.4em * 3);
+  }
+  
   /* FullCalendar Material Design 3 Styles - Light */
   .fc {
     --fc-page-bg-color: transparent;
@@ -331,6 +352,16 @@
   
   /* Мобильная версия - уменьшаем размеры */
   @media (max-width: 768px) {
+    /* Уменьшаем padding и gap для элементов списка */
+    .rounded-md-lg.p-5 {
+      padding: 0.75rem !important;
+    }
+    
+    /* Уменьшаем gap между элементами в списке */
+    .flex.gap-4 {
+      gap: 0.75rem !important;
+    }
+    
     .fc .fc-toolbar-title {
       font-size: 0.875rem !important;
       line-height: 1.25rem !important;
@@ -365,6 +396,18 @@
   .fc .fc-day-today .fc-daygrid-day-number {
     color: var(--md-primary);
     @apply font-medium;
+  }
+  
+  /* Принудительно применяем цвета событий из JavaScript - не переопределяем CSS переменными */
+  .fc-event {
+    /* Цвета задаются напрямую в JavaScript через backgroundColor, borderColor, textColor */
+  }
+  
+  /* Убираем переопределение цветов через CSS переменные для событий */
+  .fc-event-daily,
+  .fc-event-weekly,
+  .fc-event-master {
+    /* Цвета задаются напрямую в JavaScript */
   }
   
   /* Кнопки влево/вправо - primary container с primary цветом галочек */

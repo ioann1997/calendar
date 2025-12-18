@@ -332,7 +332,13 @@ async function loadDataFromFirebase() {
         const calendarRef = db.collection('calendars').doc(calendarId);
         
         unsubscribeFirestore = calendarRef.onSnapshot(
+            {
+                includeMetadataChanges: true // Позволяет различать локальные и серверные изменения
+            },
             (doc) => {
+                // Проверяем, откуда пришли данные (с сервера или из кэша)
+                const isFromCache = doc.metadata.fromCache;
+                
                 if (doc.exists) {
                     const data = doc.data();
                     items = {
@@ -348,9 +354,16 @@ async function loadDataFromFirebase() {
                     
                     // Обновляем отображение
                     renderAll();
+                    
+                    // Тихо логируем, если данные из кэша (офлайн-режим)
+                    if (isFromCache) {
+                        console.log('[Firestore] Используются данные из локального кэша (офлайн-режим)');
+                    }
                 } else {
                     // Документ не существует, создаем пустой
-                    saveDataToFirebase();
+                    if (!isFromCache) {
+                        saveDataToFirebase();
+                    }
                 }
             },
             (error) => {
@@ -595,9 +608,9 @@ function addItem(type) {
         reminderGroup?.classList.remove('hidden');
         timeGroup.classList.add('hidden');
         dayGroup.classList.add('hidden');
-        // Поля color и is_active только для ежедневных ритуалов
+        // Поле is_active только для ежедневных ритуалов (цвет убран - используются статичные цвета)
         if (type === 'daily') {
-            colorGroup.classList.remove('hidden');
+            colorGroup.classList.add('hidden'); // Всегда скрыто
             isActiveGroup.classList.remove('hidden');
         } else {
             colorGroup.classList.add('hidden');
@@ -644,11 +657,9 @@ function editItem(type, id) {
         
         // Заполняем поля для ежедневных ритуалов
         if (type === 'daily') {
-            colorGroup.classList.remove('hidden');
+            colorGroup.classList.add('hidden'); // Всегда скрыто
             isActiveGroup.classList.remove('hidden');
-            if (item.color) {
-                document.getElementById('item-color').value = item.color;
-            }
+            // Цвет не сохраняется - используются статичные цвета
             document.getElementById('item-is-active').checked = item.is_active !== false;
         } else {
             colorGroup.classList.add('hidden');
@@ -681,7 +692,45 @@ function editItem(type, id) {
     };
     
     document.getElementById('modal-title').textContent = titles[type] || 'Редактировать задачу';
-    document.getElementById('modal').classList.add('active');
+    const modal = document.getElementById('modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+// Показ полного описания задачи
+function showFullDescription(event, description) {
+    // Если description передан как строка, декодируем HTML entities
+    if (typeof description === 'string') {
+        description = description.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+    }
+    
+    if (!description || !description.trim()) return;
+    
+    // Останавливаем всплытие события, чтобы не срабатывал клик на контейнере
+    if (event) event.stopPropagation();
+    
+    // Создаем модальное окно для показа полного описания
+    const modal = document.createElement('div');
+    modal.className = 'fixed z-[1001] inset-0 backdrop-blur-sm items-center justify-center';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modal.style.display = 'flex';
+    
+    modal.innerHTML = `
+        <div class="p-8 rounded-2xl max-w-lg w-[90%] max-h-[90vh] overflow-y-auto shadow-md-xl relative" style="background-color: var(--md-surface); border: 1px solid var(--md-outline-variant);">
+            <button class="absolute right-4 top-4 text-2xl text-md-on-surface-variant hover:text-md-on-surface" onclick="this.closest('.fixed').remove()" style="cursor: pointer;">&times;</button>
+            <h3 class="text-xl font-medium mb-4" style="color: var(--md-on-surface);">Полное описание</h3>
+            <div class="text-base whitespace-pre-wrap" style="color: var(--md-on-surface); line-height: 1.6;">${escapeHtml(description)}</div>
+        </div>
+    `;
+    
+    // Закрытие по клику на фон
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    document.body.appendChild(modal);
 }
 
 // Сохранение элемента
@@ -708,7 +757,7 @@ function saveItem() {
     }
 
     // Получаем дополнительные поля для ежедневных ритуалов
-    const color = (currentTab === 'daily') ? (document.getElementById('item-color')?.value || '#ea580c') : undefined;
+    // Цвет не сохраняется - используются статичные цвета для каждого типа (EVENT_COLORS)
     const isActive = (currentTab === 'daily') ? (document.getElementById('item-is-active')?.checked !== false) : undefined;
 
     const item = {
@@ -718,8 +767,7 @@ function saveItem() {
         reminder: isSimpleList ? false : reminder,
         time: isSimpleList ? null : time,
         day: isSimpleList ? null : day,
-        // Для ежедневных ритуалов добавляем color и is_active
-        color: currentTab === 'daily' ? color : undefined,
+        // Для ежедневных ритуалов добавляем только is_active (цвет убран - используются статичные цвета)
         is_active: currentTab === 'daily' ? isActive : undefined,
         completed: editingItemId ? (baseExisting?.completed || false) : false,
         completedDate: editingItemId ? baseExisting?.completedDate : null,
@@ -753,7 +801,9 @@ function saveItem() {
         delete item.day;
     }
     
-    if (item.color === undefined) {
+    // color больше не сохраняется - используются статичные цвета для каждого типа
+    // Удаляем color из старых записей при сохранении
+    if (item.color !== undefined) {
         delete item.color;
     }
     
@@ -861,6 +911,23 @@ function initFullCalendar() {
             const fullTitle = info.event.extendedProps.fullTitle || info.event.title;
             if (info.el) {
                 info.el.setAttribute('title', fullTitle);
+                
+                // Принудительно применяем цвета из события (важно для онлайн-режима)
+                if (info.event.backgroundColor) {
+                    info.el.style.setProperty('background-color', info.event.backgroundColor, 'important');
+                }
+                if (info.event.borderColor) {
+                    info.el.style.setProperty('border-color', info.event.borderColor, 'important');
+                }
+                if (info.event.textColor) {
+                    info.el.style.setProperty('color', info.event.textColor, 'important');
+                }
+                
+                // Также применяем к дочерним элементам (для текста внутри события)
+                const eventText = info.el.querySelector('.fc-event-title');
+                if (eventText && info.event.textColor) {
+                    eventText.style.setProperty('color', info.event.textColor, 'important');
+                }
             }
         }
     });
@@ -1182,10 +1249,8 @@ function renderList(type) {
                 ${completedInfo}
             </div>`;
 
-        // Для ежедневных ритуалов добавляем цветной индикатор
-        const colorIndicator = (type === 'daily' && item.color) 
-            ? `<span class="color-indicator" style="background-color: ${item.color}; border-color: ${item.color};"></span>`
-            : '';
+        // Цветной индикатор убран - используются статичные цвета для каждого типа
+        const colorIndicator = '';
         
         // Для ежедневных ритуалов показываем статус активности
         const activeStatus = (type === 'daily' && item.is_active === false)
@@ -1193,24 +1258,24 @@ function renderList(type) {
             : '';
 
         return `
-            <div class="rounded-md-lg p-5 flex items-center gap-4 transition-all hover:-translate-y-0.5 ${completedClass ? 'opacity-70' : ''}" style="background-color: #E2E2E9; color: #573E5C; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);" onmouseover="this.style.boxShadow='0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -2px rgba(0, 0, 0, 0.1)';" onmouseout="this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)';">
-                ${checkboxHtml}
+            <div class="rounded-md-lg p-5 flex items-center gap-4 transition-all hover:-translate-y-0.5 ${completedClass ? 'opacity-70' : ''}" style="background-color: #E2E2E9; color: #573E5C; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); min-width: 0;" onmouseover="this.style.boxShadow='0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -2px rgba(0, 0, 0, 0.1)';" onmouseout="this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)';">
+                ${checkboxHtml ? `<div class="flex-shrink-0">${checkboxHtml}</div>` : ''}
                 ${colorIndicator}
-                <div class="flex-1">
+                <div class="flex-1 min-w-0" ${item.description ? `data-description="${escapeHtml(item.description).replace(/"/g, '&quot;')}" onclick="if(!event.target.closest('.btn-icon')) { const desc = this.dataset.description; if(desc) showFullDescription(event, desc) }" style="cursor: pointer;"` : ''}>
                     <div class="text-base font-medium mb-1 ${completedClass ? 'line-through' : ''}" style="color: #573E5C;">
                         ${escapeHtml(item.name)}
                         ${activeStatus}
                     </div>
-                    ${item.description ? `<div class="text-sm mt-1" style="color: #573E5C; opacity: 0.8;">${escapeHtml(item.description)}</div>` : ''}
+                    ${item.description ? `<div class="text-sm mt-1 item-description" style="color: #573E5C; opacity: 0.8;">${escapeHtml(item.description)}</div>` : ''}
                     ${metaHtml}
                 </div>
-                <div class="flex gap-2">
-                    <button class="btn-icon" onclick="editItem('${type}', '${item.id}')" title="Редактировать" style="color: #573E5C;">
+                <div class="flex gap-2 items-center flex-shrink-0">
+                    <button class="btn-icon" onclick="event.stopPropagation(); editItem('${type}', '${item.id}')" title="Редактировать" style="color: #573E5C;">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                         </svg>
                     </button>
-                    <button class="btn-icon" onclick="deleteItem('${type}', '${item.id}')" title="Удалить" style="color: var(--md-error);">
+                    <button class="btn-icon" onclick="event.stopPropagation(); deleteItem('${type}', '${item.id}')" title="Удалить" style="color: var(--md-error);">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
