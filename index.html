@@ -15,7 +15,7 @@
     <link rel="shortcut icon" href="/calendar/icon-192.png">
     
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#ea580c">
+    <meta name="theme-color" content="#415f91">
     <meta name="description" content="Трекер ритуалов и задач с напоминаниями">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -24,107 +24,217 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     
+    <!-- Google Fonts - Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Old Style Serif Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-image: url('wallpaper.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--md-background);
+            opacity: 0.5;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        /* Кнопка "Сегодня" - tertiary цвет, белый шрифт, больше закругление */
+        .fc .fc-today-button,
+        .fc-button-primary.fc-today-button,
+        button.fc-today-button {
+            background-color: #705575 !important;
+            border-color: #705575 !important;
+            color: #FFFFFF !important;
+            border-radius: 20px !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+        }
+        
+        .fc .fc-today-button:hover,
+        .fc-button-primary.fc-today-button:hover,
+        button.fc-today-button:hover {
+            background-color: #705575 !important;
+            opacity: 0.9;
+        }
+        
+        .fc .fc-today-button:focus,
+        .fc-button-primary.fc-today-button:focus,
+        button.fc-today-button:focus {
+            background-color: #705575 !important;
+            border-color: #705575 !important;
+            box-shadow: none !important;
+        }
+        
+        .fc .fc-today-button:active,
+        .fc-button-primary.fc-today-button:active,
+        button.fc-today-button:active {
+            background-color: #705575 !important;
+            border-color: #705575 !important;
+        }
+        
+        /* Мобильная версия - уменьшаем размеры календаря */
+        @media (max-width: 768px) {
+            .fc .fc-toolbar-title {
+                font-size: 0.875rem !important;
+                line-height: 1.25rem !important;
+            }
+            
+            .fc .fc-col-header-cell-cushion {
+                font-size: 0.75rem !important;
+                padding: 0.25rem 0.5rem !important;
+            }
+            
+            .fc .fc-button {
+                padding: 0.375rem 0.5rem !important;
+                font-size: 0.75rem !important;
+            }
+            
+            .fc .fc-toolbar {
+                flex-wrap: wrap !important;
+                gap: 0.5rem !important;
+            }
+            
+            .fc .fc-toolbar-chunk {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.25rem;
+            }
+            
+            .fc .fc-today-button {
+                padding: 0.375rem 0.75rem !important;
+                font-size: 0.75rem !important;
+            }
+        }
+    </style>
     <!-- FullCalendar - стили встроены в JS, отдельный CSS не нужен -->
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
-            <h1>Совиная напоминалка</h1>
-            <p class="subtitle">Не забудь о важном</p>
+<body class="min-h-screen p-5 text-md-on-surface">
+    <div class="max-w-6xl mx-auto rounded-3xl shadow-md-xl overflow-hidden" style="background-color: var(--md-surface); border: 1px solid var(--md-outline-variant);">
+        <header class="px-8 py-10 text-center relative" style="background-color: var(--md-primary); color: var(--md-on-primary); border-bottom: 1px solid var(--md-outline-variant);">
+            <button class="md:hidden absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-md-on-primary" id="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            <button class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all hover:bg-white/20 active:scale-95 text-md-on-primary" id="theme-toggle" onclick="toggleTheme()" title="Переключить тему">
+                <svg id="theme-icon-moon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                </svg>
+                <svg id="theme-icon-sun" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+            </button>
+            <h1 class="text-3xl font-normal mb-2 text-md-on-primary">Совиная напоминалка</h1>
+            <p class="text-base opacity-70 text-md-on-primary">Не забудь о важном</p>
         </header>
 
-        <div class="mobile-menu-overlay" id="mobile-menu-overlay" onclick="toggleMobileMenu()"></div>
-        <div class="main-layout">
-            <aside class="sidebar" id="sidebar">
-                <div class="tabs tabs-vertical">
-                    <button class="tab-btn active" data-tab="daily">Ежедневные ритуалы</button>
-                    <button class="tab-btn" data-tab="master">Задачи от Господина</button>
-                    <button class="tab-btn" data-tab="weekly">Еженедельные ритуалы</button>
-                    <button class="tab-btn" data-tab="rules">Правила</button>
-                    <button class="tab-btn" data-tab="bans">Запреты</button>
+        <div class="hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" id="mobile-menu-overlay" onclick="toggleMobileMenu()"></div>
+        <div class="flex gap-5 p-6">
+            <aside class="w-56 flex-shrink-0 hidden md:block" id="sidebar" style="background-color: transparent;">
+                <div class="flex flex-col gap-2 rounded-md-lg p-4" style="font-family: 'Crimson Text', 'Playfair Display', 'Times New Roman', 'Georgia', serif; background-color: var(--md-surface);">
+                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors active" data-tab="daily" style="color: var(--md-primary); background-color: #EDEDF4;">Ежедневные ритуалы</button>
+                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="master" style="color: var(--md-primary); background-color: transparent;" onmouseover="this.style.backgroundColor='#EDEDF4';" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Задачи от Господина</button>
+                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="weekly" style="color: var(--md-primary); background-color: transparent;" onmouseover="this.style.backgroundColor='#EDEDF4';" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Еженедельные ритуалы</button>
+                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="rules" style="color: var(--md-primary); background-color: transparent;" onmouseover="this.style.backgroundColor='#EDEDF4';" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Правила</button>
+                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="bans" style="color: var(--md-primary); background-color: transparent;" onmouseover="this.style.backgroundColor='#EDEDF4';" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Запреты</button>
                 </div>
             </aside>
 
-            <div class="content-area">
+            <div class="flex-1 min-w-0">
                 <!-- Календарь FullCalendar -->
-                <section class="calendar-wrapper">
+                <section class="p-6 rounded-md-lg mb-6 border border-md-outline-variant" style="background-color: var(--md-surface);">
                     <div id="fullcalendar"></div>
                 </section>
 
                 <!-- Ежедневные ритуалы -->
-                <div class="tab-content active" id="daily">
-                    <div class="section-header">
-                        <h2>🌅 Ежедневные ритуалы</h2>
-                        <button class="add-btn" onclick="addItem('daily')">+ Добавить</button>
+                <div class="tab-content block p-8 min-h-[400px] active" id="daily">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-normal m-0" style="color: var(--md-on-surface);">Ежедневные ритуалы</h2>
+                        <button class="btn-primary" onclick="addItem('daily')">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Добавить
+                        </button>
                     </div>
-                    <div class="items-list" id="daily-list"></div>
+                    <div class="flex flex-col gap-4" id="daily-list"></div>
                 </div>
 
                 <!-- Задачи от Господина -->
-                <div class="tab-content" id="master">
-                    <div class="section-header">
-                        <h2>👑 Задачи от Господина</h2>
-                        <button class="add-btn" onclick="addItem('master')">+ Добавить</button>
+                <div class="tab-content hidden p-8 min-h-[400px]" id="master">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-normal m-0 text-md-on-surface">Задачи от Господина</h2>
+                        <button class="btn-primary" onclick="addItem('master')">+ Добавить</button>
                     </div>
-                    <div class="items-list" id="master-list"></div>
+                    <div class="flex flex-col gap-4" id="master-list"></div>
                 </div>
 
                 <!-- Еженедельные ритуалы -->
-                <div class="tab-content" id="weekly">
-                    <div class="section-header">
-                        <h2>📆 Еженедельные ритуалы</h2>
-                        <button class="add-btn" onclick="addItem('weekly')">+ Добавить</button>
+                <div class="tab-content hidden p-8 min-h-[400px]" id="weekly">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-normal m-0 text-md-on-surface">Еженедельные ритуалы</h2>
+                        <button class="btn-primary" onclick="addItem('weekly')">+ Добавить</button>
                     </div>
-                    <div class="items-list" id="weekly-list"></div>
+                    <div class="flex flex-col gap-4" id="weekly-list"></div>
                 </div>
 
                 <!-- Правила -->
-                <div class="tab-content" id="rules">
-                    <div class="section-header">
-                        <h2>📜 Правила</h2>
-                        <button class="add-btn" onclick="addItem('rules')">+ Добавить</button>
+                <div class="tab-content hidden p-8 min-h-[400px]" id="rules">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-normal m-0 text-md-on-surface">Правила</h2>
+                        <button class="btn-primary" onclick="addItem('rules')">+ Добавить</button>
                     </div>
-                    <div class="items-list" id="rules-list"></div>
+                    <div class="flex flex-col gap-4" id="rules-list"></div>
                 </div>
 
                 <!-- Запреты -->
-                <div class="tab-content" id="bans">
-                    <div class="section-header">
-                        <h2>🚫 Запреты</h2>
-                        <button class="add-btn" onclick="addItem('bans')">+ Добавить</button>
+                <div class="tab-content hidden p-8 min-h-[400px]" id="bans">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-normal m-0 text-md-on-surface">Запреты</h2>
+                        <button class="btn-primary" onclick="addItem('bans')">+ Добавить</button>
                     </div>
-                    <div class="items-list" id="bans-list"></div>
+                    <div class="flex flex-col gap-4" id="bans-list"></div>
                 </div>
             </div>
         </div>
 
         <!-- Модальное окно для добавления/редактирования -->
-        <div id="modal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h3 id="modal-title">Добавить задачу</h3>
-                <form id="item-form">
-                    <input type="text" id="item-name" placeholder="Название задачи/ритуала" required>
-                    <textarea id="item-description" placeholder="Описание (необязательно)"></textarea>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="item-reminder">
+        <div id="modal" class="hidden fixed z-[1000] inset-0 backdrop-blur-sm items-center justify-center" style="background-color: rgba(0, 0, 0, 0.5);">
+            <div class="p-8 rounded-2xl max-w-lg w-[90%] max-h-[90vh] overflow-y-auto shadow-md-xl relative" style="background-color: var(--md-surface); border: 1px solid var(--md-outline-variant);">
+                <span class="absolute right-5 top-5 text-3xl font-normal cursor-pointer transition-colors" onclick="closeModal()" style="color: var(--md-on-surface-variant);" onmouseover="this.style.color='var(--md-on-surface)';" onmouseout="this.style.color='var(--md-on-surface-variant)';">&times;</span>
+                <h3 id="modal-title" class="mb-5 text-2xl font-normal" style="color: var(--md-on-surface);">Добавить задачу</h3>
+                <form id="item-form" class="flex flex-col gap-4">
+                    <input type="text" id="item-name" class="input-md" placeholder="Название задачи/ритуала" required>
+                    <textarea id="item-description" class="input-md resize-y min-h-[100px]" placeholder="Описание (необязательно)"></textarea>
+                    <div class="flex flex-col gap-2">
+                        <label class="flex items-center gap-2 text-md-on-surface cursor-pointer">
+                            <input type="checkbox" id="item-reminder" class="w-5 h-5 accent-md-primary">
                             Включить напоминание
                         </label>
                     </div>
-                    <div class="form-group" id="time-group" style="display: none;">
-                        <label>Время напоминания:</label>
-                        <input type="time" id="item-time">
+                    <div class="flex flex-col gap-2 hidden" id="time-group">
+                        <label class="text-md-on-surface">Время напоминания:</label>
+                        <input type="time" id="item-time" class="input-md">
                     </div>
-                    <div class="form-group" id="day-group" style="display: none;">
-                        <label>День недели (для еженедельных):</label>
-                        <select id="item-day">
+                    <div class="flex flex-col gap-2 hidden" id="day-group">
+                        <label class="text-md-on-surface">День недели (для еженедельных):</label>
+                        <select id="item-day" class="input-md">
                             <option value="monday">Понедельник</option>
                             <option value="tuesday">Вторник</option>
                             <option value="wednesday">Среда</option>
@@ -135,19 +245,19 @@
                         </select>
                     </div>
                     <!-- Дополнительные поля для ежедневных ритуалов -->
-                    <div class="form-group" id="color-group" style="display: none;">
-                        <label>Цвет ритуала:</label>
-                        <input type="color" id="item-color" value="#ea580c">
+                    <div class="flex flex-col gap-2 hidden" id="color-group">
+                        <label class="text-md-on-surface">Цвет ритуала:</label>
+                        <input type="color" id="item-color" value="#415f91" class="w-full h-12 rounded-md border border-md-outline-variant cursor-pointer">
                     </div>
-                    <div class="form-group" id="is-active-group" style="display: none;">
-                        <label>
-                            <input type="checkbox" id="item-is-active" checked>
+                    <div class="flex flex-col gap-2 hidden" id="is-active-group">
+                        <label class="flex items-center gap-2 text-md-on-surface cursor-pointer">
+                            <input type="checkbox" id="item-is-active" checked class="w-5 h-5 accent-md-primary">
                             Ритуал активен
                         </label>
                     </div>
-                    <div class="form-buttons">
-                        <button type="submit" class="save-btn">Сохранить</button>
-                        <button type="button" class="cancel-btn" onclick="closeModal()">Отмена</button>
+                    <div class="flex gap-3 mt-4">
+                        <button type="submit" class="btn-primary flex-1">Сохранить</button>
+                        <button type="button" class="btn-text" onclick="closeModal()">Отмена</button>
                     </div>
                 </form>
             </div>

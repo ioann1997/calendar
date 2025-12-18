@@ -1,0 +1,425 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Material Design 3 Custom Styles */
+@layer base {
+  :root {
+    /* Light Theme Colors */
+    --md-background: #F9F9FF; /* surface Bright - основной цвет фона */
+    --md-container: #D9D9E0; /* surface Dim - фон блоков */
+    --md-primary: #415F91;
+    --md-on-primary: #FFFFFF;
+    --md-secondary: #565F71;
+    --md-on-secondary: #FFFFFF;
+    --md-primary-container: #D6E3FF; /* для кнопок влево/вправо */
+    --md-on-primary-container: #284777;
+    --md-secondary-container: #DAE2F9;
+    --md-on-secondary-container: #3E4759;
+    --md-tertiary: #705575; /* для кнопки "сегодня" */
+    --md-on-tertiary: #FFFFFF;
+    --md-tertiary-container: #E2E2E9; /* фон контейнеров задач и ритуалов (surface container highest) */
+    --md-on-tertiary-container: #573E5C; /* цвет текста в контейнерах задач и ритуалов */
+    --md-error: #BA1A1A;
+    --md-on-error: #FFFFFF;
+    --md-error-container: #FFDAD6;
+    --md-on-error-container: #93000A;
+    --md-surface: #F9F9FF;
+    --md-on-surface: #191C20;
+    --md-surface-variant: #E0E2EC;
+    --md-on-surface-variant: #44474E;
+    --md-outline: #74777F;
+    --md-outline-variant: #C4C6D0;
+    --md-surface-container: #EDEDF4; /* surface container - фон кнопок меню */
+    --md-surface-container-high: #E7E8EE;
+    --md-surface-container-highest: #E2E2E9;
+  }
+  
+  .dark {
+    /* Dark High Contrast Theme Colors */
+    --md-background: #111318;
+    --md-container: #2E3036;
+    --md-primary: #EBF0FF;
+    --md-on-primary: #000000;
+    --md-secondary: #EBF0FF;
+    --md-on-secondary: #000000;
+    --md-primary-container: #A6C3FC;
+    --md-on-primary-container: #000B20;
+    --md-secondary-container: #BAC3D8;
+    --md-on-secondary-container: #030B1A;
+    --md-tertiary: #FFE9FF;
+    --md-on-tertiary: #000000;
+    --md-tertiary-container: #D8B8DC;
+    --md-on-tertiary-container: #16041D;
+    --md-error: #FFECE9;
+    --md-on-error: #000000;
+    --md-error-container: #FFAEA4;
+    --md-on-error-container: #220001;
+    --md-surface: #111318;
+    --md-on-surface: #FFFFFF;
+    --md-surface-variant: #44474E;
+    --md-on-surface-variant: #FFFFFF;
+    --md-outline: #EEEFF9;
+    --md-outline-variant: #C0C2CC;
+    --md-surface-container: #2E3036;
+    --md-surface-container-high: #393B41;
+    --md-surface-container-highest: #45474C;
+  }
+  
+  body {
+    @apply font-roboto antialiased;
+    background-image: url('wallpaper.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: var(--md-on-surface);
+    position: relative;
+    min-height: 100vh;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--md-background);
+    opacity: 0.6;
+    z-index: -1;
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  /* Material Design 3 Color Utilities using CSS Variables */
+  .bg-md-background { background-color: var(--md-background); }
+  .bg-md-container { background-color: var(--md-container); }
+  .bg-md-primary { background-color: var(--md-primary); }
+  .bg-md-primary-container { background-color: var(--md-primary-container); }
+  .bg-md-secondary-container { background-color: var(--md-secondary-container); }
+  .bg-md-surface { background-color: var(--md-surface); }
+  .bg-md-surface-container { background-color: var(--md-surface-container); }
+  .bg-md-surface-variant { background-color: var(--md-surface-variant); }
+  
+  .text-md-on-primary { color: var(--md-on-primary); }
+  .text-md-on-surface { color: var(--md-on-surface); }
+  .text-md-on-surface-variant { color: var(--md-on-surface-variant); }
+  .text-md-primary { color: var(--md-primary); }
+  .text-md-on-primary-container { color: var(--md-on-primary-container); }
+  .text-md-on-secondary-container { color: var(--md-on-secondary-container); }
+  
+  .border-md-outline-variant { border-color: var(--md-outline-variant); }
+  .border-md-primary { border-color: var(--md-primary); }
+}
+
+@layer components {
+  /* Material Design 3 Button Styles */
+  /* Filled Button - основной стиль (как на картинке) */
+  .btn-primary {
+    background-color: var(--md-primary);
+    color: var(--md-on-primary);
+    @apply px-6 py-3 rounded-full font-medium 
+           hover:opacity-90 active:opacity-80 transition-all duration-200;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Outlined Button - кнопка с обводкой */
+  .btn-outlined {
+    background-color: transparent;
+    color: var(--md-primary);
+    border: 1px solid var(--md-outline);
+    @apply px-6 py-3 rounded-full font-medium 
+           hover:bg-md-primary-container/10 active:bg-md-primary-container/20 
+           transition-all duration-200;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  /* Text Button - текстовая кнопка */
+  .btn-text {
+    background-color: transparent;
+    color: var(--md-primary);
+    border: none;
+    @apply px-4 py-2 rounded-full font-medium 
+           hover:bg-md-primary-container/10 active:bg-md-primary-container/20 
+           transition-all duration-200;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  /* Icon Button - кнопка только с иконкой */
+  .btn-icon {
+    background-color: transparent;
+    color: var(--md-on-surface-variant);
+    border: none;
+    @apply w-10 h-10 rounded-full flex items-center justify-center
+           hover:bg-md-surface-variant active:bg-md-surface-variant/80
+           transition-all duration-200;
+    cursor: pointer;
+  }
+  
+  /* FAB (Floating Action Button) - большая круглая кнопка */
+  .btn-fab {
+    background-color: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    @apply w-14 h-14 rounded-full flex items-center justify-center
+           shadow-md-lg hover:shadow-md-xl active:scale-95
+           transition-all duration-200;
+    border: none;
+    cursor: pointer;
+  }
+  
+  /* Assist Button - кнопка с иконкой информации */
+  .btn-assist {
+    background-color: var(--md-primary-container);
+    color: var(--md-on-primary-container);
+    @apply px-4 py-2 rounded-full font-medium
+           hover:opacity-90 active:opacity-80
+           transition-all duration-200;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  /* Material Design 3 Card Styles */
+  .card {
+    background-color: var(--md-container);
+    border-color: var(--md-outline-variant);
+    @apply rounded-md-lg p-6 shadow-md border;
+  }
+  
+  .card-elevated {
+    background-color: var(--md-container);
+    border-color: var(--md-outline-variant);
+    @apply rounded-md-lg p-6 shadow-md-lg border;
+  }
+  
+  /* Material Design 3 Surface Styles */
+  .surface {
+    background-color: var(--md-surface);
+    @apply rounded-md-xl;
+  }
+  
+  .surface-container {
+    background-color: var(--md-surface-container);
+    @apply rounded-md-lg;
+  }
+  
+  /* Material Design 3 Input Styles */
+  .input-md {
+    background-color: var(--md-surface);
+    color: var(--md-on-surface);
+    border-color: var(--md-outline-variant);
+    @apply w-full px-4 py-3 rounded-md border 
+           placeholder:text-md-on-surface-variant/60
+           focus:outline-none focus:ring-2 focus:ring-md-primary focus:border-transparent
+           transition-all duration-200;
+  }
+  
+  /* Material Design 3 Tab Styles */
+  .tab-active {
+    color: var(--md-primary);
+    border-left-color: var(--md-primary);
+    background-color: var(--md-primary-container);
+    @apply border-l-2 font-medium;
+    opacity: 0.12;
+  }
+  
+  .tab-inactive {
+    color: var(--md-on-surface-variant);
+    @apply hover:text-md-on-surface transition-colors;
+  }
+  
+  /* Empty State */
+  .empty-state {
+    color: var(--md-on-surface-variant);
+    @apply text-center py-12 px-5;
+  }
+  
+  .empty-state-icon {
+    @apply text-5xl mb-4;
+  }
+  
+  /* Color Indicator */
+  .color-indicator {
+    @apply w-1 h-full min-h-[40px] rounded-sm flex-shrink-0;
+  }
+  
+  /* Inactive Badge */
+  .inactive-badge {
+    background-color: var(--md-surface-variant);
+    border-color: var(--md-outline-variant);
+    color: #573E5C;
+    @apply inline-block ml-2 px-2 py-0.5 border rounded text-xs;
+  }
+  
+  /* Item Meta */
+  .item-meta {
+    color: #573E5C;
+    opacity: 0.7;
+    @apply text-xs mt-2 flex gap-3 flex-wrap;
+  }
+  
+  /* FullCalendar Material Design 3 Styles - Light */
+  .fc {
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: var(--md-container);
+    --fc-neutral-text-color: var(--md-on-surface-variant);
+    --fc-border-color: var(--md-outline-variant);
+    --fc-button-text-color: var(--md-on-primary);
+    --fc-button-bg-color: var(--md-primary);
+    --fc-button-border-color: var(--md-primary);
+    --fc-button-hover-bg-color: #284777;
+    --fc-button-hover-border-color: #284777;
+    --fc-button-active-bg-color: #0A305F;
+    --fc-button-active-border-color: var(--md-primary);
+    --fc-event-bg-color: var(--md-primary);
+    --fc-event-border-color: var(--md-primary);
+    --fc-more-link-bg-color: var(--md-container);
+    --fc-today-bg-color: rgba(65, 95, 145, 0.1);
+    --fc-highlight-color: rgba(65, 95, 145, 0.2);
+  }
+  
+  .dark .fc {
+    --fc-neutral-bg-color: var(--md-surface-container);
+    --fc-neutral-text-color: var(--md-on-surface-variant);
+    --fc-border-color: var(--md-outline-variant);
+    --fc-button-text-color: var(--md-on-primary);
+    --fc-button-bg-color: var(--md-primary);
+    --fc-button-border-color: var(--md-primary);
+    --fc-button-hover-bg-color: #A6C3FC;
+    --fc-button-hover-border-color: #A6C3FC;
+    --fc-button-active-bg-color: #000B20;
+    --fc-event-bg-color: var(--md-primary);
+    --fc-event-border-color: var(--md-primary);
+    --fc-more-link-bg-color: var(--md-surface-container);
+    --fc-today-bg-color: rgba(235, 240, 255, 0.2);
+    --fc-highlight-color: rgba(235, 240, 255, 0.3);
+  }
+  
+  .fc-theme-standard .fc-scrollgrid {
+    background-color: var(--md-container);
+    @apply rounded-md-lg;
+  }
+  
+  .fc .fc-toolbar-title {
+    color: var(--md-on-surface);
+    @apply font-normal;
+  }
+  
+  .fc .fc-col-header-cell-cushion {
+    color: var(--md-on-surface-variant);
+    @apply font-medium;
+  }
+  
+  /* Мобильная версия - уменьшаем размеры */
+  @media (max-width: 768px) {
+    .fc .fc-toolbar-title {
+      font-size: 0.875rem !important;
+      line-height: 1.25rem !important;
+    }
+    
+    .fc .fc-col-header-cell-cushion {
+      font-size: 0.75rem !important;
+      padding: 0.25rem 0.5rem !important;
+    }
+    
+    .fc .fc-button {
+      padding: 0.375rem 0.5rem !important;
+      font-size: 0.75rem !important;
+    }
+    
+    .fc .fc-toolbar {
+      flex-wrap: wrap !important;
+      gap: 0.5rem !important;
+    }
+    
+    .fc .fc-toolbar-chunk {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+  }
+  
+  .fc .fc-daygrid-day-number {
+    color: var(--md-on-surface);
+  }
+  
+  .fc .fc-day-today .fc-daygrid-day-number {
+    color: var(--md-primary);
+    @apply font-medium;
+  }
+  
+  /* Кнопки влево/вправо - primary container с primary цветом галочек */
+  .fc .fc-button-prev,
+  .fc .fc-button-next {
+    background-color: var(--md-primary-container) !important;
+    border-color: var(--md-primary-container) !important;
+    color: var(--md-primary) !important;
+    border-radius: 12px !important;
+  }
+  
+  .fc .fc-button-prev:hover,
+  .fc .fc-button-next:hover {
+    background-color: var(--md-primary-container) !important;
+    opacity: 0.8;
+  }
+  
+  /* Иконки в кнопках prev/next - primary цвет */
+  .fc .fc-button-prev .fc-icon,
+  .fc .fc-button-next .fc-icon {
+    color: var(--md-primary) !important;
+  }
+  
+  /* Кнопка "Сегодня" - tertiary цвет, белый шрифт, больше закругление */
+  .fc .fc-today-button,
+  .fc-button-primary.fc-today-button,
+  button.fc-today-button {
+    background-color: #705575 !important;
+    border-color: #705575 !important;
+    color: #FFFFFF !important;
+    border-radius: 20px !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+  }
+  
+  .fc .fc-today-button:hover,
+  .fc-button-primary.fc-today-button:hover,
+  button.fc-today-button:hover {
+    background-color: #705575 !important;
+    opacity: 0.9;
+  }
+  
+  .fc .fc-today-button:focus,
+  .fc-button-primary.fc-today-button:focus,
+  button.fc-today-button:focus {
+    background-color: #705575 !important;
+    border-color: #705575 !important;
+    box-shadow: none !important;
+  }
+  
+  .fc .fc-today-button:active,
+  .fc-button-primary.fc-today-button:active,
+  button.fc-today-button:active {
+    background-color: #705575 !important;
+    border-color: #705575 !important;
+  }
+}
+

@@ -1,0 +1,25 @@
+{
+  "name": "calendar-app",
+  "version": "1.0.0",
+  "description": "Совиная напоминалка - трекер ритуалов и задач",
+  "scripts": {
+    "build-css": "tailwindcss -i ./src/input.css -o ./styles.css --watch",
+    "build-css-prod": "tailwindcss -i ./src/input.css -o ./styles.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  },
+  "main": "firebase-config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ioann1997/calendar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ioann1997/calendar/issues"
+  },
+  "homepage": "https://github.com/ioann1997/calendar#readme"
+}
