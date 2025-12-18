@@ -240,6 +240,20 @@ async function initializeFirebaseMessaging() {
             // Сохраняем токен в Firebase для отправки уведомлений
             await saveFCMToken(fcmToken);
             console.log('[FCM] ✅ Токен сохранен в Firebase. Push-уведомления должны работать.');
+            
+            // Проверяем количество токенов и предупреждаем о возможном дублировании
+            if (calendarId) {
+                const calendarRef = db.collection('calendars').doc(calendarId);
+                const calendarDoc = await calendarRef.get();
+                if (calendarDoc.exists) {
+                    const tokens = calendarDoc.data()?.fcmTokens || [];
+                    if (tokens.length > 1) {
+                        console.warn(`[FCM] ⚠️ ВНИМАНИЕ: Найдено ${tokens.length} токенов в Firebase. Это может вызывать дублирование уведомлений.`);
+                        console.warn(`[FCM] 💡 Если у вас одно устройство, рекомендуется оставить только один токен.`);
+                        console.warn(`[FCM] 💡 Токены будут автоматически очищены при следующем обновлении.`);
+                    }
+                }
+            }
         } else {
             console.error('[FCM] ❌ Не удалось получить токен. Проверьте конфигурацию Firebase.');
         }
@@ -289,25 +303,46 @@ async function saveFCMToken(token) {
         const currentTokens = calendarDoc.data()?.fcmTokens || [];
         console.log(`[FCM] Текущие токены в Firebase: ${currentTokens.length}`);
         
+        // Проверяем, установлено ли приложение как PWA
+        const isPWA = isPWAInstalled();
+        console.log(`[FCM] Режим: ${isPWA ? 'PWA (установленное приложение)' : 'Браузер (веб-сайт)'}`);
+        
         // Получаем старый токен этого устройства из localStorage
         const oldToken = localStorage.getItem('fcmToken');
         
-        // Удаляем старый токен этого устройства, если он есть
-        let updatedTokens = currentTokens.filter(t => t !== oldToken);
-        
-        // Добавляем новый токен, если его еще нет
-        if (!updatedTokens.includes(token)) {
-            updatedTokens.push(token);
-            console.log('[FCM] Новый токен добавлен в список');
+        // Если это PWA, удаляем все токены браузера (старые токены)
+        // Если это браузер, удаляем только старый токен этого устройства
+        let updatedTokens;
+        if (isPWA) {
+            // Для PWA: удаляем все токены, кроме текущего
+            // Это предотвращает дублирование между браузером и PWA на одном устройстве
+            updatedTokens = [token]; // Оставляем только текущий токен PWA
+            console.log('[FCM] PWA режим: оставляем только токен PWA, удаляем все остальные (включая токены браузера)');
         } else {
-            console.log('[FCM] Токен уже существует в списке');
+            // Для браузера: удаляем старый токен этого устройства
+            updatedTokens = currentTokens.filter(t => t !== oldToken && t !== token);
+            
+            // Добавляем новый токен (если его еще нет)
+            if (!updatedTokens.includes(token)) {
+                updatedTokens.push(token);
+                console.log('[FCM] Новый токен браузера добавлен в список');
+            } else {
+                console.log('[FCM] Токен браузера уже существует в списке');
+            }
+            
+            // Ограничиваем количество токенов (максимум 2 - один для браузера, один для PWA)
+            if (updatedTokens.length > 2) {
+                updatedTokens = updatedTokens.slice(-2);
+                console.log(`[FCM] Ограничение: оставлено только последние 2 токена`);
+            }
         }
         
-        // Ограничиваем количество токенов (максимум 3 - для нескольких устройств)
-        // Оставляем только последние 3 токена
-        if (updatedTokens.length > 3) {
-            updatedTokens = updatedTokens.slice(-3);
-            console.log(`[FCM] Ограничение: оставлено только последние 3 токена`);
+        // Логируем для диагностики
+        if (updatedTokens.length > 1) {
+            console.log(`[FCM] ⚠️ Внимание: найдено ${updatedTokens.length} токенов.`);
+            if (isPWA) {
+                console.log(`[FCM] 💡 Рекомендуется закрыть сайт в браузере, чтобы избежать дублирования уведомлений.`);
+            }
         }
         
         // Сохраняем обновленный массив токенов
@@ -833,7 +868,17 @@ function saveItem() {
     const isSimpleList = currentTab === 'rules' || currentTab === 'bans';
     
     const reminder = isSimpleList ? false : document.getElementById('item-reminder').checked;
-    const time = (isSimpleList || !reminder) ? null : document.getElementById('item-time').value;
+    let time = (isSimpleList || !reminder) ? null : document.getElementById('item-time').value;
+    
+    // Нормализуем время: убеждаемся, что оно в формате HH:MM с ведущими нулями
+    if (time) {
+        const timeParts = time.split(':');
+        if (timeParts.length === 2) {
+            const hours = String(parseInt(timeParts[0], 10) || 0).padStart(2, '0');
+            const minutes = String(parseInt(timeParts[1], 10) || 0).padStart(2, '0');
+            time = `${hours}:${minutes}`;
+        }
+    }
     const day = (isSimpleList || !reminder || currentTab !== 'weekly') ? null : document.getElementById('item-day').value;
 
     if (!name) return;
@@ -997,11 +1042,57 @@ function initFullCalendar() {
             info.jsEvent.stopPropagation();
             handleCalendarEventClick(info);
         },
+        eventContent: function(info) {
+            // Кастомное форматирование времени с сохранением ведущих нулей
+            const timeText = info.timeText;
+            if (timeText && info.event.start) {
+                // Получаем время из события
+                const eventStart = info.event.start;
+                if (eventStart instanceof Date) {
+                    const hours = String(eventStart.getHours()).padStart(2, '0');
+                    const minutes = String(eventStart.getMinutes()).padStart(2, '0');
+                    const formattedTime = `${hours}:${minutes}`;
+                    
+                    // Если время не совпадает с отформатированным (потеряны нули), заменяем
+                    if (timeText !== formattedTime && timeText.match(/\d+:\d+/)) {
+                        // Создаем кастомный элемент с правильным временем
+                        const timeEl = document.createElement('time');
+                        timeEl.textContent = formattedTime;
+                        timeEl.className = 'fc-event-time';
+                        
+                        const titleEl = document.createElement('div');
+                        titleEl.className = 'fc-event-title';
+                        titleEl.textContent = info.event.title;
+                        
+                        const fragment = document.createDocumentFragment();
+                        fragment.appendChild(timeEl);
+                        fragment.appendChild(titleEl);
+                        
+                        return { domNodes: [fragment] };
+                    }
+                }
+            }
+            
+            // Возвращаем стандартное содержимое, если не нужно кастомизировать
+            return { html: info.timeText + ' ' + info.event.title };
+        },
         eventDidMount: function(info) {
             // Добавляем title для tooltip при наведении
             const fullTitle = info.event.extendedProps.fullTitle || info.event.title;
             if (info.el) {
                 info.el.setAttribute('title', fullTitle);
+                
+                // Исправляем отображение времени с ведущими нулями
+                const timeEl = info.el.querySelector('.fc-event-time');
+                if (timeEl && info.event.start) {
+                    const eventStart = info.event.start;
+                    if (eventStart instanceof Date) {
+                        const hours = String(eventStart.getHours()).padStart(2, '0');
+                        const minutes = String(eventStart.getMinutes()).padStart(2, '0');
+                        const formattedTime = `${hours}:${minutes}`;
+                        timeEl.textContent = formattedTime;
+                    }
+                }
                 
                 // Принудительно применяем цвета из события (важно для онлайн-режима)
                 if (info.event.backgroundColor) {
