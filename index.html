@@ -161,7 +161,6 @@
                     <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="weekly" style="color: var(--md-primary); background-color: transparent; opacity: 1;" onmouseover="if(!this.classList.contains('active')){this.style.backgroundColor='#EDEDF4';}" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Еженедельные ритуалы</button>
                     <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="rules" style="color: var(--md-primary); background-color: transparent; opacity: 1;" onmouseover="if(!this.classList.contains('active')){this.style.backgroundColor='#EDEDF4';}" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Правила</button>
                     <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="bans" style="color: var(--md-primary); background-color: transparent; opacity: 1;" onmouseover="if(!this.classList.contains('active')){this.style.backgroundColor='#EDEDF4';}" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">Запреты</button>
-                    <button class="tab-btn text-left px-5 py-4 rounded-md transition-colors" data-tab="devices" style="color: var(--md-primary); background-color: transparent; opacity: 1;" onmouseover="if(!this.classList.contains('active')){this.style.backgroundColor='#EDEDF4';}" onmouseout="if(!this.classList.contains('active')){this.style.backgroundColor='transparent';}">📱 Устройства</button>
                 </div>
             </aside>
 
@@ -216,16 +215,6 @@
                     <div class="flex flex-col gap-4" id="bans-list"></div>
                 </div>
 
-                <!-- Устройства -->
-                <div class="tab-content hidden px-6 py-8 min-h-[400px]" id="devices">
-                    <div class="flex justify-between items-center mb-6 gap-3 flex-wrap">
-                        <h2 class="section-title text-xl font-normal m-0" style="color: var(--md-primary); font-family: 'Gabriela', serif;">📱 Устройства</h2>
-                        <button class="px-4 py-2 rounded-md text-sm" onclick="refreshDevicesList()" style="background-color: #d6e3ff; color: var(--md-primary); border: none; cursor: pointer;">🔄 Обновить</button>
-                    </div>
-                    <div class="flex flex-col gap-4" id="devices-list">
-                        <p class="text-center text-gray-500">Загрузка устройств...</p>
-                    </div>
-                </div>
             </div>
         </div>
 
