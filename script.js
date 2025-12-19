@@ -15,6 +15,10 @@ let isInitialized = false;
 let calendar = null;
 let messaging = null;
 let fcmToken = null;
+let tokenSaveRetryCount = 0;
+let tokenSaveRetryTimeout = null;
+let lastTokenCheckTime = null;
+let notificationSystemStatus = 'unknown'; // 'working', 'degraded', 'failed', 'unknown'
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
@@ -58,8 +62,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             checkReminders();
             setupReminderCheck();
             
-            // Локальная проверка напоминаний отключена - уведомления отправляются через Firebase Cloud Function
-            // setInterval(checkReminders, 60000); // Отключено для предотвращения дублирования уведомлений
+            // Запускаем умную проверку напоминаний (работает как fallback, если FCM не работает)
+            startSmartReminderCheck();
         } else {
             // Если уведомления не включены в PWA, приложение заблокировано модальным окном
             console.log('[App] PWA заблокировано: уведомления не включены');
@@ -72,8 +76,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         checkReminders(); // Проверяет только сброс еженедельных задач
         setupReminderCheck();
         
-        // Локальная проверка напоминаний отключена - уведомления отправляются через Firebase Cloud Function
-        // setInterval(checkReminders, 60000); // Отключено для предотвращения дублирования
+        // Запускаем умную проверку напоминаний (работает как fallback, если FCM не работает)
+        startSmartReminderCheck();
     }
 });
 
@@ -238,7 +242,7 @@ async function initializeFirebaseMessaging() {
         if (fcmToken) {
             console.log('[FCM] ✅ Токен успешно получен:', fcmToken.substring(0, 20) + '...');
             // Сохраняем токен в Firebase для отправки уведомлений
-            await saveFCMToken(fcmToken);
+            await saveFCMToken(fcmToken, true);
             console.log('[FCM] ✅ Токен сохранен в Firebase. Push-уведомления должны работать.');
             
             // Проверяем количество токенов и предупреждаем о возможном дублировании
@@ -256,7 +260,31 @@ async function initializeFirebaseMessaging() {
             }
         } else {
             console.error('[FCM] ❌ Не удалось получить токен. Проверьте конфигурацию Firebase.');
+            updateNotificationSystemStatus('failed');
         }
+
+        // КРИТИЧНО: Обработчик обновления токена (токены могут устареть)
+        // Firebase автоматически обновляет токены, и мы должны обрабатывать это
+        messaging.onTokenRefresh(async () => {
+            console.log('[FCM] 🔄 Токен обновляется...');
+            try {
+                const registration = serviceWorkerRegistration || await navigator.serviceWorker.ready;
+                const newToken = await messaging.getToken({
+                    serviceWorkerRegistration: registration
+                });
+                
+                if (newToken && newToken !== fcmToken) {
+                    console.log('[FCM] ✅ Получен новый токен:', newToken.substring(0, 20) + '...');
+                    fcmToken = newToken;
+                    await saveFCMToken(newToken, true);
+                    console.log('[FCM] ✅ Новый токен сохранен. Система уведомлений обновлена.');
+                    updateNotificationSystemStatus('working');
+                }
+            } catch (error) {
+                console.error('[FCM] ❌ Ошибка обновления токена:', error);
+                updateNotificationSystemStatus('degraded');
+            }
+        });
 
         // Обработка входящих сообщений (когда приложение открыто)
         // ПРИМЕЧАНИЕ: Отключено для предотвращения дублирования уведомлений
@@ -269,24 +297,25 @@ async function initializeFirebaseMessaging() {
         //     showNotification(payload.notification?.body || payload.data?.body || 'Напоминание');
         // });
 
+        // Устанавливаем статус системы как работающей
+        updateNotificationSystemStatus('working');
+        
+        // Запускаем периодическую проверку токена (каждые 24 часа)
+        startTokenHealthCheck();
+
     } catch (error) {
         console.error('[FCM] ❌ Ошибка инициализации:', error);
         console.error('[FCM] Детали ошибки:', error.message, error.stack);
     }
 }
 
-// Сохранение FCM токена в Firebase
-async function saveFCMToken(token) {
+// Сохранение FCM токена в Firebase с механизмом повторных попыток
+async function saveFCMToken(token, isInitialAttempt = false) {
     if (!calendarId) {
         console.warn('[FCM] ⚠️ calendarId не установлен, токен не сохранен. Дождитесь инициализации календаря.');
         // Попробуем сохранить позже, когда calendarId будет установлен
-        setTimeout(async () => {
-            if (calendarId && fcmToken) {
-                console.log('[FCM] Повторная попытка сохранения токена...');
-                await saveFCMToken(fcmToken);
-            }
-        }, 2000);
-        return;
+        scheduleTokenSaveRetry(token, 2000);
+        return false;
     }
     
     try {
@@ -297,7 +326,8 @@ async function saveFCMToken(token) {
         const calendarDoc = await calendarRef.get();
         if (!calendarDoc.exists) {
             console.error('[FCM] ❌ Календарь не найден в Firebase:', calendarId);
-            return;
+            updateNotificationSystemStatus('failed');
+            return false;
         }
         
         const currentTokens = calendarDoc.data()?.fcmTokens || [];
@@ -354,12 +384,151 @@ async function saveFCMToken(token) {
         // Сохраняем новый токен в localStorage для следующего обновления
         localStorage.setItem('fcmToken', token);
         
+        // Сбрасываем счетчик повторных попыток при успехе
+        tokenSaveRetryCount = 0;
+        if (tokenSaveRetryTimeout) {
+            clearTimeout(tokenSaveRetryTimeout);
+            tokenSaveRetryTimeout = null;
+        }
+        
         console.log(`[FCM] ✅ Токен успешно сохранен в Firebase для календаря: ${calendarId} (всего токенов: ${updatedTokens.length})`);
         console.log('[FCM] 💡 Убедитесь, что Firebase Cloud Function "checkAndSendReminders" развернута для отправки push-уведомлений');
+        
+        updateNotificationSystemStatus('working');
+        return true;
     } catch (error) {
         console.error('[FCM] ❌ Ошибка сохранения токена:', error);
         console.error('[FCM] Детали ошибки:', error.message);
+        
+        // Планируем повторную попытку с экспоненциальной задержкой
+        if (isInitialAttempt || tokenSaveRetryCount < 5) {
+            const delay = Math.min(2000 * Math.pow(2, tokenSaveRetryCount), 30000); // Максимум 30 секунд
+            console.log(`[FCM] 🔄 Повторная попытка сохранения токена через ${delay}ms (попытка ${tokenSaveRetryCount + 1}/5)`);
+            scheduleTokenSaveRetry(token, delay);
+            updateNotificationSystemStatus('degraded');
+        } else {
+            console.error('[FCM] ❌ Превышено максимальное количество попыток сохранения токена');
+            updateNotificationSystemStatus('failed');
+        }
+        return false;
     }
+}
+
+// Планирование повторной попытки сохранения токена
+function scheduleTokenSaveRetry(token, delay) {
+    if (tokenSaveRetryTimeout) {
+        clearTimeout(tokenSaveRetryTimeout);
+    }
+    tokenSaveRetryTimeout = setTimeout(async () => {
+        tokenSaveRetryCount++;
+        await saveFCMToken(token, false);
+    }, delay);
+}
+
+// Периодическая проверка валидности токена
+function startTokenHealthCheck() {
+    // Проверяем токен каждые 24 часа
+    setInterval(async () => {
+        if (!messaging || !calendarId) return;
+        
+        try {
+            console.log('[FCM] 🔍 Периодическая проверка токена...');
+            const registration = serviceWorkerRegistration || await navigator.serviceWorker.ready;
+            const currentToken = await messaging.getToken({
+                serviceWorkerRegistration: registration
+            });
+            
+            if (currentToken && currentToken !== fcmToken) {
+                console.log('[FCM] 🔄 Обнаружено изменение токена, обновляем...');
+                fcmToken = currentToken;
+                await saveFCMToken(currentToken, true);
+            } else if (currentToken === fcmToken) {
+                console.log('[FCM] ✅ Токен валиден');
+                updateNotificationSystemStatus('working');
+            } else {
+                console.warn('[FCM] ⚠️ Не удалось получить токен при проверке');
+                updateNotificationSystemStatus('degraded');
+            }
+            
+            lastTokenCheckTime = new Date();
+        } catch (error) {
+            console.error('[FCM] ❌ Ошибка проверки токена:', error);
+            updateNotificationSystemStatus('degraded');
+        }
+    }, 24 * 60 * 60 * 1000); // 24 часа
+}
+
+// Обновление статуса системы уведомлений
+function updateNotificationSystemStatus(status) {
+    const previousStatus = notificationSystemStatus;
+    notificationSystemStatus = status;
+    
+    const statusMessages = {
+        'working': '✅ Система уведомлений работает',
+        'degraded': '⚠️ Система уведомлений работает с ограничениями',
+        'failed': '❌ Система уведомлений не работает',
+        'unknown': '❓ Статус системы уведомлений неизвестен'
+    };
+    console.log(`[FCM Status] ${statusMessages[status]}`);
+    
+    // Показываем уведомление пользователю только при ухудшении статуса
+    if (previousStatus === 'working' && (status === 'degraded' || status === 'failed')) {
+        showSystemStatusNotification(status);
+    }
+    
+    // Обновляем визуальный индикатор (если есть)
+    updateStatusIndicator(status);
+}
+
+// Показ уведомления о статусе системы
+function showSystemStatusNotification(status) {
+    if (status === 'failed') {
+        console.warn('[FCM] ⚠️ Система уведомлений не работает. Используется локальная проверка как fallback.');
+        // Можно показать toast-уведомление пользователю
+        if ('Notification' in window && Notification.permission === 'granted') {
+            // Показываем только один раз, чтобы не спамить
+            const lastStatusNotification = localStorage.getItem('lastStatusNotification');
+            const now = Date.now();
+            if (!lastStatusNotification || (now - parseInt(lastStatusNotification)) > 3600000) { // Раз в час
+                showNotification(
+                    'Система push-уведомлений временно недоступна. Используется локальная проверка напоминаний.',
+                    '⚠️ Уведомления'
+                );
+                localStorage.setItem('lastStatusNotification', now.toString());
+            }
+        }
+    }
+}
+
+// Обновление визуального индикатора статуса (можно добавить в UI)
+function updateStatusIndicator(status) {
+    // Можно добавить визуальный индикатор в интерфейс
+    // Например, цветной badge или иконку в углу экрана
+    // Пока просто логируем
+    const statusColors = {
+        'working': 'green',
+        'degraded': 'yellow',
+        'failed': 'red',
+        'unknown': 'gray'
+    };
+    console.log(`[FCM Status Indicator] Цвет: ${statusColors[status]}`);
+}
+
+// Умная проверка напоминаний (работает как fallback)
+let reminderCheckInterval = null;
+function startSmartReminderCheck() {
+    // Очищаем предыдущий интервал, если есть
+    if (reminderCheckInterval) {
+        clearInterval(reminderCheckInterval);
+    }
+    
+    // Запускаем проверку каждую минуту
+    // Функция checkReminders сама определит, нужно ли использовать fallback
+    reminderCheckInterval = setInterval(() => {
+        checkReminders();
+    }, 60000); // Каждую минуту
+    
+    console.log('[Reminders] ✅ Умная проверка напоминаний запущена (fallback активен)');
 }
 
 // Переключение мобильного меню
@@ -1699,15 +1868,157 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// Проверка напоминаний
-// ПРИМЕЧАНИЕ: Локальная проверка отключена, так как уведомления отправляются через Firebase Cloud Function
-// Это предотвращает дублирование уведомлений (одно от локальной проверки, одно от FCM)
-function checkReminders() {
-    // Локальная проверка отключена - уведомления отправляются только через Firebase Cloud Function
-    // Это предотвращает дублирование уведомлений
+// Функция для генерации случайного сообщения напоминания (совпадает с functions/index.js)
+function getRandomReminderMessage(ritualName) {
+    const messages = [
+        `Твой Господин ждёт, когда ты его порадуешь - ${ritualName}`,
+        `Напоминание от твоего Господина: ${ritualName} должно быть выполнено. Я ожидаю отчёта.`,
+        `Пора выполнить ${ritualName}, моя хорошая. Сделай это для меня — и ты заслужишь мою похвалу.`,
+        `Твой Господин проверяет твоё усердие. Готова ли ты доказать, что можешь безупречно выполнить "${ritualName}"?`,
+        `${ritualName}. Время пришло. Выполни. Это моя воля.`,
+        `Твой долг и твоя честь — исполнить ${ritualName}. Помни, кому ты принадлежишь. Служение начинается сейчас.`
+    ];
     
-    // Проверяем только сброс еженедельных задач (это не связано с уведомлениями)
+    // Выбираем случайное сообщение
+    const randomIndex = Math.floor(Math.random() * messages.length);
+    return messages[randomIndex];
+}
+
+// Функция для генерации случайного ежедневного сообщения в 11:00 (совпадает с functions/index.js)
+function getDaily11AMMessage() {
+    const messages = [
+        "11:00 — время перерыва и моей гордости за тебя. Ты сегодня справляешься великолепно!",
+        "Середина дня, середина моих мыслей о тебе. Помни, как ты важна для меня",
+        "11 часов, и я хочу напомнить: твоя улыбка — самый ценный бриллиант в моей коллекции",
+        "Послеобеденное солнце светит не так ярко, как ты. Продолжай сиять",
+        "Кофе остывает, а моя нежность к тебе — никогда. Ты моё самое теплое солнышко",
+        "Время для лёгкого перерыва и моего напоминания: ты заслуживаешь всего самого лучшего",
+        "Середина рабочего дня — середина моей заботы о тебе. Расслабь плечи, я рядом"
+    ];
+    
+    // Выбираем случайное сообщение
+    const randomIndex = Math.floor(Math.random() * messages.length);
+    return messages[randomIndex];
+}
+
+// Проверка напоминаний с fallback механизмом
+// Основной способ: Firebase Cloud Function (когда система работает)
+// Fallback: локальная проверка (когда система не работает или токен не сохранен)
+function checkReminders() {
+    // Всегда проверяем сброс еженедельных задач
     checkWeeklyReset();
+    
+    // Проверяем, нужно ли использовать fallback (локальную проверку)
+    const shouldUseFallback = shouldUseLocalReminderCheck();
+    
+    if (shouldUseFallback) {
+        console.log('[Reminders] 🔄 Используется fallback: локальная проверка напоминаний');
+        checkLocalReminders();
+    } else {
+        console.log('[Reminders] ✅ Используется основной способ: Firebase Cloud Function');
+    }
+}
+
+// Определение, нужно ли использовать локальную проверку как fallback
+function shouldUseLocalReminderCheck() {
+    // Используем fallback если:
+    // 1. Система уведомлений не работает или работает с ограничениями
+    if (notificationSystemStatus === 'failed' || notificationSystemStatus === 'degraded') {
+        return true;
+    }
+    
+    // 2. Токен не сохранен или не получен
+    if (!fcmToken) {
+        return true;
+    }
+    
+    // 3. Разрешение на уведомления не предоставлено
+    if (Notification.permission !== 'granted') {
+        return true;
+    }
+    
+    // 4. Проверяем, есть ли токен в Firebase (проверяем раз в час)
+    const lastTokenCheck = localStorage.getItem('lastTokenFirebaseCheck');
+    const now = Date.now();
+    const oneHour = 60 * 60 * 1000;
+    
+    if (!lastTokenCheck || (now - parseInt(lastTokenCheck)) > oneHour) {
+        checkTokenInFirebase().then(hasToken => {
+            if (!hasToken) {
+                console.warn('[Reminders] ⚠️ Токен не найден в Firebase, используем fallback');
+            }
+            localStorage.setItem('lastTokenFirebaseCheck', now.toString());
+        });
+    }
+    
+    return false;
+}
+
+// Проверка наличия токена в Firebase
+async function checkTokenInFirebase() {
+    if (!calendarId) return false;
+    
+    try {
+        const calendarRef = db.collection('calendars').doc(calendarId);
+        const calendarDoc = await calendarRef.get();
+        if (calendarDoc.exists) {
+            const tokens = calendarDoc.data()?.fcmTokens || [];
+            return tokens.length > 0 && tokens.includes(fcmToken);
+        }
+    } catch (error) {
+        console.error('[Reminders] Ошибка проверки токена в Firebase:', error);
+    }
+    return false;
+}
+
+// Локальная проверка напоминаний (fallback механизм)
+function checkLocalReminders() {
+    if (!items || !calendarId) return;
+    
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const currentDay = getCurrentDayName();
+    
+    // Ежедневное уведомление в 11:00 (только для PWA в fallback режиме)
+    if (currentTime === '11:00') {
+        // Проверяем, не отправляли ли уже сегодня уведомление в 11:00
+        const last11AMNotification = localStorage.getItem('last11AMNotification');
+        const today = new Date().toDateString();
+        
+        if (!last11AMNotification || last11AMNotification !== today) {
+            const message = getDaily11AMMessage();
+            showNotification(message, '💝 Твоё напоминание');
+            console.log('[Reminders] 💝 Ежедневное уведомление 11:00 (fallback)');
+            localStorage.setItem('last11AMNotification', today);
+        }
+    }
+    
+    // Проверяем ежедневные ритуалы
+    items.daily.forEach(item => {
+        if (item.reminder && item.time === currentTime && !item.completed) {
+            const message = getRandomReminderMessage(item.name);
+            showNotification(message, '🦉 Напоминание');
+            console.log('[Reminders] 📅 Ежедневный ритуал:', item.name);
+        }
+    });
+    
+    // Проверяем задачи от Господина
+    items.master.forEach(item => {
+        if (item.reminder && item.time === currentTime && !item.completed) {
+            const message = getRandomReminderMessage(item.name);
+            showNotification(message, '🦉 Напоминание');
+            console.log('[Reminders] 📅 Задача от Господина:', item.name);
+        }
+    });
+    
+    // Проверяем еженедельные ритуалы
+    items.weekly.forEach(item => {
+        if (item.reminder && item.day === currentDay && item.time === currentTime && !item.completed) {
+            const message = getRandomReminderMessage(item.name);
+            showNotification(message, '🦉 Напоминание');
+            console.log('[Reminders] 📅 Еженедельный ритуал:', item.name);
+        }
+    });
 }
 
 // Проверка сброса еженедельных задач
