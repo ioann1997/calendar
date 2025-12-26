@@ -18,12 +18,12 @@ function getRandomReminderMessage(ritualName) {
   return messages[randomIndex];
 }
 
-// Функция для генерации случайного ежедневного сообщения в 18:00
+// Функция для генерации случайного ежедневного сообщения в 19:00
 function getDaily11AMMessage() {
   const messages = [
-    "18:00 — время перерыва и моей гордости за тебя. Ты сегодня справляешься великолепно!",
+    "19:00 — время перерыва и моей гордости за тебя. Ты сегодня справляешься великолепно!",
     "Вечер наступает, и я хочу напомнить: ты важна для меня",
-    "18 часов, и я хочу напомнить: твоя улыбка — самый ценный бриллиант в моей коллекции",
+    "19 часов, и я хочу напомнить: твоя улыбка — самый ценный бриллиант в моей коллекции",
     "Вечернее солнце светит не так ярко, как ты. Продолжай сиять",
     "День подходит к концу, а моя нежность к тебе — никогда. Ты моё самое теплое солнышко",
     "Время для вечернего перерыва и моего напоминания: ты заслуживаешь всего самого лучшего",
@@ -161,11 +161,10 @@ exports.checkAndSendReminders = onSchedule(
           continue;
         }
         
-        // Проверяем ежедневные ритуалы
+        // Проверяем ежедневные ритуалы - каждый день в назначенное время
         const daily = data.daily || [];
         for (const item of daily) {
-          if (item.reminder && item.time === currentTime && !item.completed) {
-            // Создаем сообщения для каждого токена
+          if (item.reminder && item.time === currentTime) {
             const reminderMessage = getRandomReminderMessage(item.name);
             const messages = fcmTokens.map(token => ({
               notification: {
@@ -176,7 +175,6 @@ exports.checkAndSendReminders = onSchedule(
             }));
             
             try {
-              // Используем sendEach для отправки множественных уведомлений
               const response = await admin.messaging().sendEach(messages);
               const result = processSendResponse(response, fcmTokens, calendarId, db);
               console.log(`✅ Ежедневный ритуал "${item.name}": отправлено ${result.successCount} уведомлений`);
@@ -190,11 +188,11 @@ exports.checkAndSendReminders = onSchedule(
           }
         }
         
-        // Проверяем задачи от Господина
+        // Проверяем задачи от Господина - одно уведомление в день создания задачи
         const master = data.master || [];
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         for (const item of master) {
-          if (item.reminder && item.time === currentTime && !item.completed) {
-            // Создаем сообщения для каждого токена
+          if (item.reminder && item.createdDate === today && item.time === currentTime) {
             const reminderMessage = getRandomReminderMessage(item.name);
             const messages = fcmTokens.map(token => ({
               notification: {
@@ -205,7 +203,6 @@ exports.checkAndSendReminders = onSchedule(
             }));
             
             try {
-              // Используем sendEach для отправки множественных уведомлений
               const response = await admin.messaging().sendEach(messages);
               const result = processSendResponse(response, fcmTokens, calendarId, db);
               console.log(`✅ Задача от Господина "${item.name}": отправлено ${result.successCount} уведомлений`);
@@ -219,11 +216,10 @@ exports.checkAndSendReminders = onSchedule(
           }
         }
         
-        // Проверяем еженедельные ритуалы
+        // Проверяем еженедельные ритуалы - в указанное время и день недели
         const weekly = data.weekly || [];
         for (const item of weekly) {
-          if (item.reminder && item.day === currentDay && item.time === currentTime && !item.completed) {
-            // Создаем сообщения для каждого токена
+          if (item.reminder && item.day === currentDay && item.time === currentTime) {
             const reminderMessage = getRandomReminderMessage(item.name);
             const messages = fcmTokens.map(token => ({
               notification: {
@@ -234,7 +230,6 @@ exports.checkAndSendReminders = onSchedule(
             }));
             
             try {
-              // Используем sendEach для отправки множественных уведомлений
               const response = await admin.messaging().sendEach(messages);
               const result = processSendResponse(response, fcmTokens, calendarId, db);
               console.log(`✅ Еженедельный ритуал "${item.name}": отправлено ${result.successCount} уведомлений`);
@@ -248,16 +243,16 @@ exports.checkAndSendReminders = onSchedule(
           }
         }
         
-        // Ежедневное уведомление в 18:00 для всех пользователей PWA
-        // Проверяем время более надежно: час = 18 и минута = 0
+        // Ежедневное уведомление в 19:00 для всех пользователей PWA
+        // Проверяем время более надежно: час = 19 и минута = 0
         const hourInt = parseInt(hour, 10);
         const minuteInt = parseInt(minute, 10);
-        const is6PM = hourInt === 18 && minuteInt === 0;
+        const is7PM = hourInt === 19 && minuteInt === 0;
         
-        console.log(`🔍 Проверка времени для ежедневного уведомления: currentTime="${currentTime}", hour=${hourInt}, minute=${minuteInt}, is6PM=${is6PM}`);
+        console.log(`🔍 Проверка времени для ежедневного уведомления: currentTime="${currentTime}", hour=${hourInt}, minute=${minuteInt}, is7PM=${is7PM}`);
         
-        if (is6PM || currentTime === '18:00') {
-          console.log(`✅ Время 18:00 обнаружено для календаря ${calendarId}, проверяем дату последней отправки...`);
+        if (is7PM || currentTime === '19:00') {
+          console.log(`✅ Время 19:00 обнаружено для календаря ${calendarId}, проверяем дату последней отправки...`);
           // Проверяем, не отправляли ли уже сегодня уведомление в 18:00
           const last11AMDate = data.last11AMNotificationDate;
           const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -267,9 +262,9 @@ exports.checkAndSendReminders = onSchedule(
           
           if (!last11AMDate || last11AMDate !== today) {
             if (fcmTokens.length === 0) {
-              console.log(`⚠️ Нет токенов для отправки ежедневного уведомления 18:00`);
+              console.log(`⚠️ Нет токенов для отправки ежедневного уведомления 19:00`);
             } else {
-              console.log(`🚀 Отправка ежедневного уведомления 18:00 для календаря ${calendarId}...`);
+              console.log(`🚀 Отправка ежедневного уведомления 19:00 для календаря ${calendarId}...`);
               const dailyMessage = getDaily11AMMessage();
               console.log(`💬 Сообщение: "${dailyMessage}"`);
               
@@ -287,7 +282,7 @@ exports.checkAndSendReminders = onSchedule(
                 // Используем sendEach для отправки множественных уведомлений
                 const response = await admin.messaging().sendEach(messages);
                 const result = processSendResponse(response, fcmTokens, calendarId, db);
-                console.log(`✅ Ежедневное уведомление 18:00: отправлено ${result.successCount} уведомлений`);
+                console.log(`✅ Ежедневное уведомление 19:00: отправлено ${result.successCount} уведомлений`);
                 if (result.failureCount > 0) {
                   console.log(`⚠️ Не удалось отправить ${result.failureCount} уведомлений`);
                 }
@@ -303,19 +298,19 @@ exports.checkAndSendReminders = onSchedule(
                 console.log(`💾 Дата отправки сохранена: ${today}`);
                 totalSent += result.successCount;
               } catch (error) {
-                console.error('❌ Ошибка отправки ежедневного уведомления 18:00:', error);
+                console.error('❌ Ошибка отправки ежедневного уведомления 19:00:', error);
                 console.error('❌ Детали ошибки:', error.message, error.stack);
               }
             }
           } else {
-            console.log(`⏭️ Ежедневное уведомление 18:00 уже отправлено сегодня для календаря ${calendarId} (${last11AMDate})`);
+            console.log(`⏭️ Ежедневное уведомление 19:00 уже отправлено сегодня для календаря ${calendarId} (${last11AMDate})`);
           }
         } else {
-          // Логируем только если близко к 18:00 для отладки
+          // Логируем только если близко к 19:00 для отладки
           const hour = parseInt(currentTime.split(':')[0]);
           const minute = parseInt(currentTime.split(':')[1]);
-          if (hour === 18 && minute >= 0 && minute <= 2) {
-            console.log(`⏰ Время близко к 18:00, но не точно: ${currentTime}`);
+          if (hour === 19 && minute >= 0 && minute <= 2) {
+            console.log(`⏰ Время близко к 19:00, но не точно: ${currentTime}`);
           }
         }
       }
