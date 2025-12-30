@@ -667,9 +667,17 @@ async function loadDataFromFirebase() {
             (doc) => {
                 // Проверяем, откуда пришли данные (с сервера или из кэша)
                 const isFromCache = doc.metadata.fromCache;
+                const hasPendingWrites = doc.metadata.hasPendingWrites;
+                
+                // Игнорируем локальные изменения (они уже применены)
+                if (hasPendingWrites && !isFromCache) {
+                    return; // Это наше собственное изменение, не обрабатываем
+                }
                 
                 if (doc.exists) {
                     const data = doc.data();
+                    // Принимаем данные с сервера как источник истины
+                    // Firestore автоматически синхронизирует изменения между устройствами
                     items = {
                         daily: data.daily || [],
                         master: data.master || [],
@@ -722,14 +730,33 @@ async function saveDataToFirebase() {
     
     try {
         const calendarRef = db.collection('calendars').doc(calendarId);
-        await calendarRef.set({
-            daily: items.daily || [],
+        
+        // Убеждаемся, что completedDates всегда сохраняются для ежедневных и еженедельных ритуалов
+        const ensureCompletedDates = (items) => {
+            return items.map(item => {
+                if ((item.completedDates === undefined || item.completedDates === null) && 
+                    (item.completedDate || item.completed)) {
+                    // Если есть completedDate, но нет completedDates, создаем массив
+                    if (item.completedDate) {
+                        item.completedDates = [item.completedDate.split('T')[0]]; // Берем только дату
+                    } else {
+                        item.completedDates = [];
+                    }
+                }
+                return item;
+            });
+        };
+        
+        const dataToSave = {
+            daily: ensureCompletedDates(items.daily || []),
             master: items.master || [],
-            weekly: items.weekly || [],
+            weekly: ensureCompletedDates(items.weekly || []),
             rules: items.rules || [],
             bans: items.bans || [],
             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+        
+        await calendarRef.set(dataToSave, { merge: true });
         
         // Также сохраняем в кэш
         saveDataToCache();
@@ -1118,8 +1145,8 @@ function saveItem() {
         is_active: currentTab === 'daily' ? isActive : undefined,
         completed: editingItemId ? (baseExisting?.completed || false) : false,
         completedDate: editingItemId ? baseExisting?.completedDate : null,
-        // для ежедневных и еженедельных ритуалов сохраняем массив выполненных дат
-        completedDates: ((currentTab === 'daily' || currentTab === 'weekly') && baseExisting?.completedDates) ? baseExisting.completedDates : undefined,
+        // для ежедневных и еженедельных ритуалов всегда сохраняем массив выполненных дат (если он есть)
+        completedDates: ((currentTab === 'daily' || currentTab === 'weekly') && baseExisting?.completedDates && baseExisting.completedDates.length > 0) ? baseExisting.completedDates : ((currentTab === 'daily' || currentTab === 'weekly') && baseExisting?.completedDates) ? baseExisting.completedDates : undefined,
         startDate,
         // для задач от Господина запоминаем день постановки
         createdDate: currentTab === 'master'
@@ -1186,22 +1213,46 @@ function deleteItem(type, id) {
 }
 
 // Переключение выполнения
-function toggleComplete(type, id) {
+function toggleComplete(type, id, dateKey = null) {
     // Для правил и запретов нет статуса выполнения
     if (type === 'rules' || type === 'bans') return;
     
     const item = items[type].find(i => i.id === id);
     if (!item) return;
 
-    if (item.completed) {
-        item.completed = false;
-        item.completedDate = null;
-    } else {
-        item.completed = true;
-        // для ежедневных ритуалов считаем датой завершения текущий день (без времени)
-        if (type === 'daily') {
-            item.completedDate = getLocalDateString();
+    // Определяем дату выполнения
+    const today = dateKey || getLocalDateString();
+    
+    // Для ежедневных и еженедельных ритуалов используем completedDates
+    if (type === 'daily' || type === 'weekly') {
+        if (!item.completedDates) {
+            item.completedDates = [];
+        }
+        
+        const isCompleted = item.completedDates.includes(today);
+        
+        if (isCompleted) {
+            // Убираем из массива выполненных дат
+            item.completedDates = item.completedDates.filter(d => d !== today);
+            // Для обратной совместимости
+            item.completed = false;
+            item.completedDate = null;
         } else {
+            // Добавляем в массив выполненных дат
+            if (!item.completedDates.includes(today)) {
+                item.completedDates.push(today);
+            }
+            // Для обратной совместимости
+            item.completed = true;
+            item.completedDate = today;
+        }
+    } else {
+        // Для задач от Господина используем старую логику
+        if (item.completed) {
+            item.completed = false;
+            item.completedDate = null;
+        } else {
+            item.completed = true;
             item.completedDate = new Date().toISOString();
         }
     }
@@ -1950,27 +2001,8 @@ function handleCalendarEventClick(info) {
                     item.completedDates = [];
                 }
                 
-                const dateIndex = item.completedDates.indexOf(clickedDate);
-                if (dateIndex === -1) {
-                    // Отмечаем выполнение на эту дату
-                    item.completedDates.push(clickedDate);
-                    item.completed = true; // для обратной совместимости
-                } else {
-                    // Снимаем выполнение с этой даты
-                    item.completedDates.splice(dateIndex, 1);
-                    if (item.completedDates.length === 0) {
-                        item.completed = false;
-                    }
-                }
-                
-                saveData();
-                renderAll();
-                
-                // Обновляем шкалу прогресса
-                updateProgressHeart();
-                
-                // Проверяем, все ли задачи за день выполнены
-                checkAllTasksCompleted();
+                // Используем toggleComplete для единообразной обработки
+                toggleComplete('weekly', itemId, clickedDate);
             } else {
                 console.warn('Не найден еженедельный ритуал с ID:', itemId);
             }
