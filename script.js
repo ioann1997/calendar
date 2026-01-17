@@ -20,8 +20,67 @@ let tokenSaveRetryTimeout = null;
 let lastTokenCheckTime = null;
 let notificationSystemStatus = 'unknown'; // 'working', 'degraded', 'failed', 'unknown'
 
+// Флаг блокировки приложения (для разработки)
+// По умолчанию включен (true) - приложение заблокировано
+// Чтобы выключить блокировку и вернуться к разработке:
+//   localStorage.setItem('appMaintenanceMode', 'false')
+//   window.location.reload()
+// Чтобы включить блокировку обратно:
+//   localStorage.setItem('appMaintenanceMode', 'true')
+//   window.location.reload()
+function isMaintenanceMode() {
+    // Если флаг не установлен, по умолчанию включаем режим обслуживания
+    const flag = localStorage.getItem('appMaintenanceMode');
+    if (flag === null) {
+        localStorage.setItem('appMaintenanceMode', 'true');
+        return true;
+    }
+    return flag === 'true';
+}
+
+function showMaintenanceOverlay() {
+    const overlay = document.getElementById('maintenance-overlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+    }
+}
+
+function hideMaintenanceOverlay() {
+    const overlay = document.getElementById('maintenance-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+}
+
+// Глобальная функция для переключения режима обслуживания (для удобства разработчика)
+window.toggleMaintenanceMode = function(enable) {
+    if (enable === undefined) {
+        // Переключаем на противоположное значение
+        const current = isMaintenanceMode();
+        localStorage.setItem('appMaintenanceMode', (!current).toString());
+        console.log(`Режим обслуживания ${!current ? 'включен' : 'выключен'}. Перезагрузите страницу.`);
+    } else {
+        localStorage.setItem('appMaintenanceMode', enable.toString());
+        console.log(`Режим обслуживания ${enable ? 'включен' : 'выключен'}. Перезагрузите страницу.`);
+    }
+    return isMaintenanceMode();
+};
+
 // Инициализация
 document.addEventListener('DOMContentLoaded', async () => {
+    // Проверяем режим обслуживания
+    if (isMaintenanceMode()) {
+        showMaintenanceOverlay();
+        console.log('%c🔴 РЕЖИМ ОБСЛУЖИВАНИЯ АКТИВЕН', 'color: red; font-size: 16px; font-weight: bold;');
+        console.log('%cЧтобы отключить режим обслуживания и вернуться к разработке:', 'color: orange; font-size: 14px;');
+        console.log('localStorage.setItem("appMaintenanceMode", "false"); window.location.reload();');
+        console.log('Или используйте: window.toggleMaintenanceMode(false); window.location.reload();');
+        // Блокируем весь функционал
+        return;
+    }
+    
+    hideMaintenanceOverlay();
+    
     // Загружаем сохраненную тему
     const savedTheme = localStorage.getItem('theme') || 'light';
     if (savedTheme === 'dark') {
@@ -371,7 +430,7 @@ async function saveFCMToken(token, isInitialAttempt = false) {
         }
         
         // Ограничиваем количество токенов (максимум 10 для поддержки множественных устройств и пользователей)
-        // Это позволяет хранить токены для: веб + PWA у господина, веб + PWA у нижней, + запас
+        // Это позволяет хранить токены для: веб + PWA у хозяина, веб + PWA у нижней, + запас
         const maxTokens = 10;
         if (updatedTokens.length > maxTokens) {
             // Оставляем последние N токенов (самые свежие)
@@ -914,6 +973,8 @@ function setupReminderCheck() {
 
 // Добавление элемента
 function addItem(type) {
+    if (isMaintenanceMode()) return;
+    
     editingItemId = null;
     
     // Переключаемся на нужную вкладку
@@ -926,7 +987,7 @@ function addItem(type) {
     const isSimpleList = type === 'rules' || type === 'bans';
     const titles = {
         'daily': 'Добавить ежедневный ритуал',
-        'master': 'Добавить задачу от Господина',
+        'master': 'Добавить задачу от Хозяина',
         'weekly': 'Добавить еженедельный ритуал',
         'rules': 'Добавить правило',
         'bans': 'Добавить запрет'
@@ -973,6 +1034,8 @@ function addItem(type) {
 
 // Редактирование элемента
 function editItem(type, id) {
+    if (isMaintenanceMode()) return;
+    
     const item = items[type].find(i => i.id === id);
     if (!item) return;
 
@@ -1042,7 +1105,7 @@ function editItem(type, id) {
 
     const titles = {
         'daily': 'Редактировать ежедневный ритуал',
-        'master': 'Редактировать задачу от Господина',
+        'master': 'Редактировать задачу от Хозяина',
         'weekly': 'Редактировать еженедельный ритуал',
         'rules': 'Редактировать правило',
         'bans': 'Редактировать запрет'
@@ -1099,6 +1162,7 @@ function showFullDescription(event, description) {
 
 // Сохранение элемента
 function saveItem() {
+    if (isMaintenanceMode()) return;
     const name = document.getElementById('item-name').value.trim();
     const description = document.getElementById('item-description').value.trim();
     
@@ -1148,7 +1212,7 @@ function saveItem() {
         // для ежедневных и еженедельных ритуалов всегда сохраняем массив выполненных дат (если он есть)
         completedDates: ((currentTab === 'daily' || currentTab === 'weekly') && baseExisting?.completedDates && baseExisting.completedDates.length > 0) ? baseExisting.completedDates : ((currentTab === 'daily' || currentTab === 'weekly') && baseExisting?.completedDates) ? baseExisting.completedDates : undefined,
         startDate,
-        // для задач от Господина запоминаем день постановки
+        // для задач от Хозяина запоминаем день постановки
         createdDate: currentTab === 'master'
             ? (baseExisting?.createdDate || todayDate)
             : baseExisting?.createdDate
@@ -1205,6 +1269,8 @@ function saveItem() {
 
 // Удаление элемента
 function deleteItem(type, id) {
+    if (isMaintenanceMode()) return;
+    
     if (confirm('Вы уверены, что хотите удалить эту задачу?')) {
         items[type] = items[type].filter(i => i.id !== id);
         saveData();
@@ -1214,6 +1280,8 @@ function deleteItem(type, id) {
 
 // Переключение выполнения
 function toggleComplete(type, id, dateKey = null) {
+    if (isMaintenanceMode()) return;
+    
     // Для правил и запретов нет статуса выполнения
     if (type === 'rules' || type === 'bans') return;
     
@@ -1247,7 +1315,7 @@ function toggleComplete(type, id, dateKey = null) {
             item.completedDate = today;
         }
     } else {
-        // Для задач от Господина используем старую логику
+        // Для задач от Хозяина используем старую логику
         if (item.completed) {
             item.completed = false;
             item.completedDate = null;
@@ -1291,7 +1359,7 @@ function checkAllTasksCompleted() {
         return item.completed === true;
     });
     
-    // Проверяем задачи от господина (только те, которые относятся к сегодняшнему дню)
+    // Проверяем задачи от хозяина (только те, которые относятся к сегодняшнему дню)
     const allMasterTasks = items.master || [];
     // Фильтруем только задачи, которые созданы на сегодня или должны быть выполнены сегодня
     const masterTasks = allMasterTasks.filter(item => {
@@ -1301,7 +1369,7 @@ function checkAllTasksCompleted() {
         return createdDate === today;
     });
     
-    // Проверяем, что все задачи от господина на сегодня выполнены
+    // Проверяем, что все задачи от хозяина на сегодня выполнены
     const allMasterCompleted = masterTasks.length === 0 || masterTasks.every(item => {
         // Проверяем, что задача выполнена и дата выполнения соответствует сегодня
         if (!item.completed) return false;
@@ -1436,7 +1504,7 @@ function updateProgressHeart(targetDate = null) {
         }
     });
     
-    // Задачи от господина
+    // Задачи от хозяина
     masterTasks.forEach(item => {
         if (item.completed) {
             if (item.completedDate) {
@@ -1605,7 +1673,7 @@ function showCongratulationsOverlay() {
         "План выполнен. Я ценю твою дисциплину — сегодня ты служила образцово.",
         "Систематичность и результат. Этот день послужил на благо нашей динамики, моя преданная.",
         "Идеальное исполнение. Прими мои поздравления, хорошая девочка. Я горжусь тобой.",
-        "Цель достигнута. Твой Господин будет доволен."
+        "Цель достигнута. Твой Хозяин будет доволен."
     ];
     
     // Выбираем случайное сообщение
@@ -2035,7 +2103,7 @@ function buildCalendarEvents() {
     const EVENT_COLORS = {
         daily: '#789ED0',      // Ежедневные ритуалы
         weekly: '#7FCBE6',     // Еженедельные ритуалы
-        master: '#705575'      // Задачи от Господина
+        master: '#705575'      // Задачи от Хозяина
     };
 
     const today = new Date();
@@ -2148,7 +2216,7 @@ function buildCalendarEvents() {
         }
     });
 
-    // Задачи от Господина: однократные события в день создания
+    // Задачи от Хозяина: однократные события в день создания
     const masterColor = EVENT_COLORS.master;
     (items.master || []).forEach((item) => {
         if (!item.createdDate) return;
@@ -2355,10 +2423,10 @@ document.addEventListener('click', function(event) {
 // Функция для генерации случайного сообщения напоминания (совпадает с functions/index.js)
 function getRandomReminderMessage(ritualName) {
     const messages = [
-        `Твой Господин ждёт, когда ты его порадуешь - ${ritualName}`,
-        `Напоминание от твоего Господина: ${ritualName} должно быть выполнено. Я ожидаю отчёта.`,
+        `Твой Хозяин ждёт, когда ты его порадуешь - ${ritualName}`,
+        `Напоминание от твоего Хозяина: ${ritualName} должно быть выполнено. Я ожидаю отчёта.`,
         `Пора выполнить ${ritualName}, моя хорошая. Сделай это для меня — и ты заслужишь мою похвалу.`,
-        `Твой Господин проверяет твоё усердие. Готова ли ты доказать, что можешь безупречно выполнить "${ritualName}"?`,
+        `Твой Хозяин проверяет твоё усердие. Готова ли ты доказать, что можешь безупречно выполнить "${ritualName}"?`,
         `${ritualName}. Время пришло. Выполни. Это моя воля.`,
         `Твой долг и твоя честь — исполнить ${ritualName}. Помни, кому ты принадлежишь. Служение начинается сейчас.`
     ];
@@ -2486,12 +2554,12 @@ function checkLocalReminders() {
         }
     });
     
-    // Проверяем задачи от Господина
+    // Проверяем задачи от Хозяина
     items.master.forEach(item => {
         if (item.reminder && item.time === currentTime && !item.completed) {
             const message = getRandomReminderMessage(item.name);
             showNotification(message, '🦉 Напоминание');
-            console.log('[Reminders] 📅 Задача от Господина:', item.name);
+            console.log('[Reminders] 📅 Задача от Хозяина:', item.name);
         }
     });
     

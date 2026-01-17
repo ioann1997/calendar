@@ -33,9 +33,9 @@
       "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Задачи от Господина",
+      "name": "Задачи от Хозяина",
       "short_name": "Задачи",
-      "description": "Открыть задачи от Господина",
+      "description": "Открыть задачи от Хозяина",
       "url": "/calendar/?tab=master",
       "icons": [{ "src": "/calendar/icon-192.png", "sizes": "192x192" }]
     }

@@ -5,10 +5,10 @@ admin.initializeApp();
 // Функция для генерации случайного сообщения напоминания
 function getRandomReminderMessage(ritualName) {
   const messages = [
-    `Твой Господин ждёт, когда ты его порадуешь - ${ritualName}`,
-    `Напоминание от твоего Господина: ${ritualName} должно быть выполнено. Я ожидаю отчёта.`,
+    `Твой Хозяин ждёт, когда ты его порадуешь - ${ritualName}`,
+    `Напоминание от твоего Хозяина: ${ritualName} должно быть выполнено. Я ожидаю отчёта.`,
     `Пора выполнить ${ritualName}, моя хорошая. Сделай это для меня — и ты заслужишь мою похвалу.`,
-    `Твой Господин проверяет твоё усердие. Готова ли ты доказать, что можешь безупречно выполнить "${ritualName}"?`,
+    `Твой Хозяин проверяет твоё усердие. Готова ли ты доказать, что можешь безупречно выполнить "${ritualName}"?`,
     `${ritualName}. Время пришло. Выполни. Это моя воля.`,
     `Твой долг и твоя честь — исполнить ${ritualName}. Помни, кому ты принадлежишь. Служение начинается сейчас.`
   ];
@@ -188,7 +188,7 @@ exports.checkAndSendReminders = onSchedule(
           }
         }
         
-        // Проверяем задачи от Господина - одно уведомление в день создания задачи
+        // Проверяем задачи от Хозяина - одно уведомление в день создания задачи
         const master = data.master || [];
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
         for (const item of master) {
@@ -205,13 +205,13 @@ exports.checkAndSendReminders = onSchedule(
             try {
               const response = await admin.messaging().sendEach(messages);
               const result = processSendResponse(response, fcmTokens, calendarId, db);
-              console.log(`✅ Задача от Господина "${item.name}": отправлено ${result.successCount} уведомлений`);
+              console.log(`✅ Задача от Хозяина "${item.name}": отправлено ${result.successCount} уведомлений`);
               if (result.invalidTokensCount > 0) {
                 console.log(`🗑️ Удалено ${result.invalidTokensCount} недействительных токенов`);
               }
               totalSent += result.successCount;
             } catch (error) {
-              console.error('❌ Ошибка отправки задачи от Господина:', error);
+              console.error('❌ Ошибка отправки задачи от Хозяина:', error);
             }
           }
         }
